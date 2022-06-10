@@ -71,7 +71,7 @@ class algalbloom_tracker_node(object):
         rate = rospy.Rate(1/update_period)
         while not rospy.is_shutdown():
 
-            print(self.depth)
+            print("Depth: {}".format(self.depth))
 
             rate.sleep()
 
