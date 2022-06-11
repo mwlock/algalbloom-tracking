@@ -1,0 +1,17 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Control",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["out/finland_hres_oceancolor.h5","out/traj_finland_hres_oceancolor.h5","1618610399","MAT","--kernel_params", "44.29588721", "0.54654887", "0.26656638"]
+        }
+    ]
+}
