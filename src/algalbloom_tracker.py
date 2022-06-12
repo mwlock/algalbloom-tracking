@@ -12,15 +12,21 @@ import sklearn.gaussian_process as gp
 from scipy.spatial.distance import cdist
 
 # Ros imports
-# import rospy
+import rospy
 import os
 
 # Smarc imports
-# from vehicle import Vehicle
-# from auv_config import AUVConfig
-# from geographic_msgs.msg import GeoPoint
-# from std_msgs.msg import Float64
-# import common_globals
+from vehicle import Vehicle
+from auv_config import AUVConfig
+from geographic_msgs.msg import GeoPoint
+from geometry_msgs.msg import PointStamped, PoseArray, PoseStamped, Point
+from smarc_msgs.msg import GotoWaypoint, LatLonOdometry
+from std_msgs.msg import Float64, Header, Bool, Empty
+from smarc_msgs.srv import LatLonToUTM
+from smarc_msgs.srv import UTMToLatLon
+from smarc_msgs.msg import GotoWaypointActionResult
+import common_globals
+import geographic_msgs.msg
 
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots()
@@ -99,7 +105,7 @@ class GPEstimator:
             dx = x_dist * common_term
             dy = y_dist * common_term
 
-        return dx @ self.__model.alpha_, dy @ self.__model.alpha_
+        return np.matmul(dx,self.__model.alpha_) , np.matmul(dy,self.__model.alpha_) 
 
 
 def nonabs_1D_dist(x, X):
@@ -170,11 +176,14 @@ class GeoGrid:
 # Read matlab data
 def read_mat_data(timestamp,include_time=False):
 
+    # Get datapath
+    base_path = rospy.get_param('~data_file_base_path')
+
     # Read mat files
-    chl = scipy.io.loadmat('data/chl.mat')['chl']
-    lat = scipy.io.loadmat('data/lat.mat')['lat']
-    lon = scipy.io.loadmat('data/lon.mat')['lon']
-    time = scipy.io.loadmat('data/time.mat')['time']
+    chl = scipy.io.loadmat(base_path+'/chl.mat')['chl']
+    lat = scipy.io.loadmat(base_path+'/lat.mat')['lat']
+    lon = scipy.io.loadmat(base_path+'/lon.mat')['lon']
+    time = scipy.io.loadmat(base_path+'/time.mat')['time']
 
     # Reshape
     lat = np.reshape(lat,[-1,])
@@ -197,7 +206,14 @@ class algalbloom_tracker_node(object):
         self.y = fb.data
     def lat_lon__cb(self,fb):
         self.lat = fb.latitude
-        self.long = fb.longitude
+        self.lon = fb.longitude
+    def waypoint_reached__cb(self,fb):
+        rospy.loginfo("Waypoint Action Result callback triggered")
+        if fb.result.reached_waypoint:
+            self.following_waypoint = False
+
+    def pose_is_none(self):
+        return None in [self.depth,self.lat,self.lon,self.x,self.y]
 
     # Init
     def __init__(self):
@@ -210,10 +226,41 @@ class algalbloom_tracker_node(object):
         self.y = None
 
         # Subscribe to relevant topics
-        # self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
-        # self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
-        # self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
-        # self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
+        self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
+        self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
+        self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
+        self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
+        self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
+
+        # Waypoint enable publishing
+        self.enable_waypoint_pub = rospy.Publisher('/sam/algae_farm/enable', Bool, queue_size=1)
+        self.enable_waypoint_following = Bool()
+        self.enable_waypoint_following.data = True
+
+        # Waypoint following publishing
+        self.waypoint_topic = '/sam/algae_farm/wp'
+        self.waypoint_topic_type = GotoWaypoint
+        self.waypoint_pub = rospy.Publisher(self.waypoint_topic, self.waypoint_topic_type,queue_size=5)
+
+        # Latlong to UTM service
+        # wait for the latlon_to_utm service to exist
+        service_exists = False
+        rospy.loginfo("Waiting for lat_lon_to_utm services")
+        self.LATLONTOUTM_SERVICE = '/sam/dr/lat_lon_to_utm'
+        while not service_exists:
+            time.sleep(1)
+            try:
+                rospy.wait_for_service(self.LATLONTOUTM_SERVICE, timeout=1)
+                service_exists = True
+                break
+            except:
+                try:
+                    rospy.wait_for_service(self.LATLONTOUTM_SERVICE, timeout=1)
+                    service_exists = True
+                    break
+                except:
+                    continue
+       
 
         # Setup dynamics
         self.alpha_seek = 30
@@ -250,16 +297,99 @@ class algalbloom_tracker_node(object):
 
         # Init
         self.init_flag = False
+        self.following_waypoint = False
+
+    def latlon_to_utm(self,lat,lon,z,in_degrees=False):
+        try:
+            rospy.wait_for_service(self.LATLONTOUTM_SERVICE, timeout=1)
+        except:
+            rospy.logwarn(str(self.LATLONTOUTM_SERVICE)+" service not found!")
+            return (None, None)
+        try:
+            latlontoutm_service = rospy.ServiceProxy(self.LATLONTOUTM_SERVICE,
+                                                     LatLonToUTM)
+            gp = GeoPoint()
+            if in_degrees:
+                gp.latitude = lat
+                gp.longitude = lon
+            else:
+                gp.latitude = lat
+                gp.longitude = lon
+            gp.altitude = z
+            utm_res = latlontoutm_service(gp)
+
+            # try:
+            #     serv = rospy.ServiceProxy('/sam/dr/utm_to_lat_lon', UTMToLatLon)
+            #     p = Point()
+            #     p.x = utm_res.utm_point.x
+            #     p.y = utm_res.utm_point.y
+            #     p.z = utm_res.utm_point.z
+            #     res = serv(p)
+            #     lat = res.lat_lon_point.latitude
+            #     lon = res.lat_lon_point.longitude
+            # except Exception as e:
+            #     print(e)
+
+            return (utm_res.utm_point.x, utm_res.utm_point.y)
+        except rospy.service.ServiceException:
+            rospy.logerr_throttle_identical(5, "LatLon to UTM service failed! namespace:{}".format(self.LATLONTOUTM_SERVICE))
+            return (None, None)
+
+    def publishWaypoint(self,lat,lon,depth):
+
+        self.lat_lon_point = geographic_msgs.msg.GeoPoint()
+        self.lat_lon_point.latitude = lat
+        self.lat_lon_point.longitude = lon
+
+        rospy.loginfo('Converting lat : {}, lon : {} to utm'.format(lat,lon))
+        x, y = self.latlon_to_utm(lat=lat,lon=lon,z=depth)
+
+        z_control_modes = [GotoWaypoint.Z_CONTROL_DEPTH]
+        speed_control_mode = [GotoWaypoint.SPEED_CONTROL_RPM,GotoWaypoint.SPEED_CONTROL_SPEED]
+
+        msg = GotoWaypoint()
+
+        msg.travel_depth = -1
+        msg.goal_tolerance = 2
+        msg.z_control_mode = z_control_modes[0]
+        #msg.travel_rpm = 1000
+        msg.speed_control_mode = speed_control_mode[1]
+        msg.travel_speed = 1.0
+        msg.pose.header.frame_id = 'utm'
+        msg.pose.header.stamp = rospy.Time(0)
+        msg.pose.pose.position.x = x
+        msg.pose.pose.position.y = y
+
+        self.enable_waypoint_pub.publish(self.enable_waypoint_following)
+        self.waypoint_pub.publish(msg)
+        rospy.loginfo('Published waypoint')
+        rospy.loginfo(msg)
+
 
     def tick_control(self,x0, step, dynamics, grid, estimator, init_heading, meas_per, include_time=False, filter=False):
         """ Perform the control law """
 
-        print("Ticking control law")
+        if self.pose_is_none():
+            rospy.loginfo('State is none')
+            return
+
+        # Plot current position
+        if self.init_flag:
+            ax.plot(self.lon,self.lat,'g.', linewidth=1)
+            plt.pause(0.0001)
+
+        if self.following_waypoint:
+            rospy.loginfo('Following waypoint')
+            return
+
+        rospy.loginfo("Ticking control law")
+        rospy.loginfo("Speed : {}".format(self.speed))
+        rospy.loginfo("Depth : {}".format(self.depth))
 
         # ==============================================================================================================
         if not self.init_flag:
 
-            print("Initialising")
+            rospy.loginfo("Initialising")
 
             # Prepare gradient filter
             if filter is not False:
@@ -377,6 +507,10 @@ class algalbloom_tracker_node(object):
 
         self.traj[self.i+1] =self.traj[self.i] + step*self.control
 
+        # send next waypoint
+        self.following_waypoint = True
+        self.publishWaypoint(lat=self.traj[self.i+1][1],lon = self.traj[self.i+1][0],depth=0)
+
         if not grid.is_within_limits(self.traj[self.i+1, :], include_time=include_time):
             print("Warning:self.trajectory got out of boundary limits.")
             return 
@@ -404,19 +538,20 @@ class algalbloom_tracker_node(object):
         init_coords = [20.87, 61.492]
 
         update_period = self.time_step
-        # rate = rospy.Rate(1/update_period)
-        # while not rospy.is_shutdown():
-
-            # print("Depth: {}".format(self.depth))
-        while True:
+        rate = rospy.Rate(1/update_period)
+        # while True:
+        while not rospy.is_shutdown():
+        
             self.tick_control(init_coords, self.time_step, self.dynamics, self.grid, self.est, init_heading, self.meas_per, include_time=False, filter=False)
 
-            # rate.sleep()
+            rate.sleep()
 
 # Main runtime function
 if __name__ == '__main__':
 
-    # rospy.init_node("algalbloom_tracker")
+    print('Starting node')
+
+    rospy.init_node("algalbloom_tracker")
 
     tracking = algalbloom_tracker_node()
     tracking.run_node()
