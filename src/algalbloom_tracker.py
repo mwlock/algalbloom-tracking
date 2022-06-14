@@ -16,8 +16,6 @@ import rospy
 import os
 
 # Smarc imports
-from vehicle import Vehicle
-from auv_config import AUVConfig
 from geographic_msgs.msg import GeoPoint
 from geometry_msgs.msg import PointStamped, PoseArray, PoseStamped, Point
 from smarc_msgs.msg import GotoWaypoint, LatLonOdometry
@@ -25,7 +23,6 @@ from std_msgs.msg import Float64, Header, Bool, Empty
 from smarc_msgs.srv import LatLonToUTM
 from smarc_msgs.srv import UTMToLatLon
 from smarc_msgs.msg import GotoWaypointActionResult
-import common_globals
 import geographic_msgs.msg
 
 import matplotlib.pyplot as plt
@@ -197,28 +194,33 @@ def read_mat_data(timestamp,include_time=False):
 
 class algalbloom_tracker_node(object):
 
-    # Callbacks
+    # Subscriber callbacks
     def depth__cb(self,fb):
         self.depth = fb.data
+
     def x__cb(self,fb):
         self.x = fb.data
+
     def y__cb(self,fb):
         self.y = fb.data
+
     def lat_lon__cb(self,fb):
         self.lat = fb.latitude
         self.lon = fb.longitude
-    def waypoint_reached__cb(self,fb):
-        rospy.loginfo("Waypoint Action Result callback triggered")
-        if fb.result.reached_waypoint:
-            self.following_waypoint = False
 
+    def waypoint_reached__cb(self,fb):
+        if fb.status.text == "WP Reached":
+            self.following_waypoint = False
+            rospy.loginfo("Waypoint reached")
+
+    # Return true if pose remains uninitialized
     def pose_is_none(self):
         return None in [self.depth,self.lat,self.lon,self.x,self.y]
 
     # Init
     def __init__(self):
 
-        # Set initial values
+        # Declare relevant pose variables 
         self.depth = None
         self.lat = None
         self.lon = None
@@ -232,12 +234,12 @@ class algalbloom_tracker_node(object):
         self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
         self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
 
-        # Waypoint enable publishing
+        # Waypoint enable publisher
         self.enable_waypoint_pub = rospy.Publisher('/sam/algae_farm/enable', Bool, queue_size=1)
         self.enable_waypoint_following = Bool()
         self.enable_waypoint_following.data = True
 
-        # Waypoint following publishing
+        # Waypoint following publisher
         self.waypoint_topic = '/sam/algae_farm/wp'
         self.waypoint_topic_type = GotoWaypoint
         self.waypoint_pub = rospy.Publisher(self.waypoint_topic, self.waypoint_topic_type,queue_size=5)
@@ -254,13 +256,7 @@ class algalbloom_tracker_node(object):
                 service_exists = True
                 break
             except:
-                try:
-                    rospy.wait_for_service(self.LATLONTOUTM_SERVICE, timeout=1)
-                    service_exists = True
-                    break
-                except:
-                    continue
-       
+                pass       
 
         # Setup dynamics
         self.alpha_seek = 30
@@ -273,7 +269,7 @@ class algalbloom_tracker_node(object):
         self.args = 1618610399
         self.include_time = False
         self.timestamp = 1618610399
-        self.grid = read_mat_data(self.timestamp, include_time=False)
+        self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
 
         # Gaussian Process Regression
         self.kernel = "MAT"
@@ -284,7 +280,7 @@ class algalbloom_tracker_node(object):
         self.meas_per = int(10 / self.time_step) # measurement period
         self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
 
-        # Algorithm settings (commented values are ofself.trajectory for IROS paper)
+        # Algorithm settings
         self.n_iter = int(3e5) # 3e5
         self.n_meas = 125 # 125
         self.estimation_trigger_val = (self.n_meas-1) * self.meas_per
@@ -299,7 +295,9 @@ class algalbloom_tracker_node(object):
         self.init_flag = False
         self.following_waypoint = False
 
+    # Convert latlon to UTM
     def latlon_to_utm(self,lat,lon,z,in_degrees=False):
+
         try:
             rospy.wait_for_service(self.LATLONTOUTM_SERVICE, timeout=1)
         except:
@@ -318,43 +316,32 @@ class algalbloom_tracker_node(object):
             gp.altitude = z
             utm_res = latlontoutm_service(gp)
 
-            # try:
-            #     serv = rospy.ServiceProxy('/sam/dr/utm_to_lat_lon', UTMToLatLon)
-            #     p = Point()
-            #     p.x = utm_res.utm_point.x
-            #     p.y = utm_res.utm_point.y
-            #     p.z = utm_res.utm_point.z
-            #     res = serv(p)
-            #     lat = res.lat_lon_point.latitude
-            #     lon = res.lat_lon_point.longitude
-            # except Exception as e:
-            #     print(e)
-
             return (utm_res.utm_point.x, utm_res.utm_point.y)
         except rospy.service.ServiceException:
             rospy.logerr_throttle_identical(5, "LatLon to UTM service failed! namespace:{}".format(self.LATLONTOUTM_SERVICE))
             return (None, None)
 
+    # Publish waypoint to SAM
     def publishWaypoint(self,lat,lon,depth):
 
         self.lat_lon_point = geographic_msgs.msg.GeoPoint()
         self.lat_lon_point.latitude = lat
         self.lat_lon_point.longitude = lon
 
-        rospy.loginfo('Converting lat : {}, lon : {} to utm'.format(lat,lon))
         x, y = self.latlon_to_utm(lat=lat,lon=lon,z=depth)
 
         z_control_modes = [GotoWaypoint.Z_CONTROL_DEPTH]
         speed_control_mode = [GotoWaypoint.SPEED_CONTROL_RPM,GotoWaypoint.SPEED_CONTROL_SPEED]
 
         msg = GotoWaypoint()
-
         msg.travel_depth = -1
         msg.goal_tolerance = 2
+        msg.lat = lat
+        msg.lon = lon
         msg.z_control_mode = z_control_modes[0]
         #msg.travel_rpm = 1000
         msg.speed_control_mode = speed_control_mode[1]
-        msg.travel_speed = 1.0
+        msg.travel_speed = 5.0
         msg.pose.header.frame_id = 'utm'
         msg.pose.header.stamp = rospy.Time(0)
         msg.pose.pose.position.x = x
@@ -363,8 +350,6 @@ class algalbloom_tracker_node(object):
         self.enable_waypoint_pub.publish(self.enable_waypoint_following)
         self.waypoint_pub.publish(msg)
         rospy.loginfo('Published waypoint')
-        rospy.loginfo(msg)
-
 
     def tick_control(self,x0, step, dynamics, grid, estimator, init_heading, meas_per, include_time=False, filter=False):
         """ Perform the control law """
@@ -383,9 +368,11 @@ class algalbloom_tracker_node(object):
             return
 
         rospy.loginfo("Ticking control law")
-        rospy.loginfo("Speed : {}".format(self.speed))
-        rospy.loginfo("Depth : {}".format(self.depth))
 
+        current_position = [self.lon,self.lat]
+
+        # ==============================================================================================================
+        # Initialisation
         # ==============================================================================================================
         if not self.init_flag:
 
@@ -404,7 +391,7 @@ class algalbloom_tracker_node(object):
                 else:
                     raise ValueError("Unrecognized filter.")
 
-            if include_time is not False:
+            if include_time:
                 x0 = [x0[0], x0[1], grid.time[grid.t_idx]]
                 self.init_heading = np.array([init_heading[0] - x0[0], init_heading[1] - x0[1], 1])
 
@@ -413,6 +400,9 @@ class algalbloom_tracker_node(object):
 
             self.traj = np.zeros((self.n_iter, len(x0)))
             self.traj[0] = x0
+
+            self.true_traj = np.zeros((self.n_iter, len(x0)))
+            self.true_traj[0] = current_position
 
             self.x_meas = np.zeros((int(np.ceil(self.n_iter / meas_per)), len(x0)))
             self.measurements = np.zeros(int(np.ceil(self.n_iter / meas_per)))
@@ -431,7 +421,7 @@ class algalbloom_tracker_node(object):
             self.i = 0
 
             # Graphing
-            # Plot trajectory
+            # Plot initial trajectory point
             ax.set_aspect('equal')
             xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
             p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
@@ -443,19 +433,20 @@ class algalbloom_tracker_node(object):
 
         # ==============================================================================================================
 
-        # for i in range(self.n_iter-1):
         if self.i % int(self.n_iter/100) == 0:
-            print("Current iteration: %d" % self.i)
+            rospy.loginfo("Current iteration: %d" % self.i)
 
         offset = self.i % meas_per
 
         # Init state - 5% tolerance from front
         if (self.i < self.estimation_trigger_val-1 or self.measurements[self.meas_index-1] < 0.95*dynamics.delta_ref) and self.init_flag is True:
             if offset == 0:
-                self.x_meas[self.meas_index] =self.traj[self.i]
+                self.x_meas[self.meas_index] = current_position
 
+                
                 self.measurements[self.meas_index] = grid.field(self.x_meas[self.meas_index]) + np.random.normal(0, estimator.s)
                 self.grad[self.meas_index] = self.init_heading[:2] / np.linalg.norm(self.init_heading[:2])
+                rospy.loginfo('Taking measurement : {}'.format(self.measurements[self.meas_index]))
 
                 if filter is not False:
                     self.grad_filter[self.meas_index] = self.grad[self.meas_index]
@@ -469,10 +460,11 @@ class algalbloom_tracker_node(object):
                 # init_flag = False
 
             if offset == 0:
-                self.x_meas[self.meas_index] =self.traj[self.i]
+                self.x_meas[self.meas_index] = current_position
 
                 # Take measurement
                 val = grid.field(self.x_meas[self.meas_index]) + np.random.normal(0, estimator.s)
+                rospy.loginfo('Taking measurement near front: {}'.format(val))
                 if np.isnan(val):
                     print("Warning: NaN value measured.")
                     self.measurements[self.meas_index] = self.measurements[self.meas_index-1] # Avoid plots problems
@@ -484,7 +476,7 @@ class algalbloom_tracker_node(object):
                 self.measurements[self.meas_index] = np.average(self.measurements[self.meas_index + 1 - self.meas_filter_len:self.meas_index+1], weights=self.weights_meas)
 
                 # Estimate gradient
-                if include_time is not False:
+                if include_time:
                     self.grad[self.meas_index] = np.array(estimator.est_grad(self.x_meas[self.meas_index-self.n_meas:self.meas_index+1, :2], \
                                                             self.measurements[self.meas_index-self.n_meas:self.meas_index+1])).squeeze()
                 else:
@@ -494,7 +486,7 @@ class algalbloom_tracker_node(object):
                 self.grad[self.meas_index] = self.grad[self.meas_index] / np.linalg.norm(self.grad[self.meas_index])
 
                 # Filter gradient
-                if filter is not False:
+                if filter:
                     self.grad_filter[self.meas_index] = grad_moving_average_2D(self.grad, self.meas_index, self.grad_filter_len, self.weights)
                     self.grad_filter[self.meas_index] = self.grad_filter[self.meas_index-1]*self.alpha + self.grad_filter[self.meas_index]*(1-self.alpha)
                     self.control = dynamics(self.measurements[self.meas_index], self.grad_filter[self.meas_index], include_time=include_time)
@@ -506,16 +498,18 @@ class algalbloom_tracker_node(object):
                 self.meas_index = self.meas_index + 1
 
         self.traj[self.i+1] =self.traj[self.i] + step*self.control
+        self.true_traj[self.i] = current_position
 
-        # send next waypoint
+        # Send next waypoint
         self.following_waypoint = True
         self.publishWaypoint(lat=self.traj[self.i+1][1],lon = self.traj[self.i+1][0],depth=0)
 
+        # SAM moving outsife of scope of current mission
         if not grid.is_within_limits(self.traj[self.i+1, :], include_time=include_time):
             print("Warning:self.trajectory got out of boundary limits.")
             return 
 
-        # Plotting
+        # Plot calculated waypoint
         if self.i%50 == 0:
             ax.plot(self.traj[self.i][0],self.traj[self.i][1],'r.', linewidth=1)
             plt.pause(0.0001)
@@ -546,13 +540,9 @@ class algalbloom_tracker_node(object):
 
             rate.sleep()
 
-# Main runtime function
 if __name__ == '__main__':
 
-    print('Starting node')
-
     rospy.init_node("algalbloom_tracker")
-
     tracking = algalbloom_tracker_node()
     tracking.run_node()
         
