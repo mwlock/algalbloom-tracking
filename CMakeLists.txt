@@ -160,7 +160,7 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  src/algalbloom_tracker.py src/vehicle.py src/auv_config.py src/common_globals.py
+  src/algalbloom_tracker.py 
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
