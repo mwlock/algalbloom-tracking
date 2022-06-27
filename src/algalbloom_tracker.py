@@ -262,7 +262,9 @@ class algalbloom_tracker_node(object):
         self.alpha_seek = 30
         self.alpha_follow = 1
         self.delta_ref = 7.45
-        self.speed = 0.00004497 # 5m/s
+        self.nominal_speed = 0.00004497 # 5m/s
+        self.speed_up_factor = 2
+        self.speed = self.nominal_speed * self.speed_up_factor
         self.dynamics = Dynamics(self.alpha_seek, self.alpha_follow, self.delta_ref, self.speed)
 
         # WGS84 grid
@@ -412,7 +414,7 @@ class algalbloom_tracker_node(object):
                 self.grad_filter = np.zeros((int(np.ceil(self.n_iter / meas_per)), 2))
 
             # Init state control law
-            self.control = self.init_heading[:2] * dynamics.speed / np.linalg.norm([self.init_heading[:2]])
+            self.control = self.init_heading[:2] * self.nominal_speed / np.linalg.norm([self.init_heading[:2]])
 
             self.meas_index = 0
             self.init_flag = True
