@@ -220,6 +220,14 @@ class algalbloom_tracker_node(object):
     # Init
     def __init__(self):
 
+        # Get parameters
+        self.simulate_gps = rospy.get_param('~simulate_gps_position')
+        self.lat_centre = rospy.get('~lat_centre')
+        self.lat_centre = rospy.get('~lat_centre')
+
+        self.simulated_lat_offset = 0
+        self.simulated_lon_offset = 0
+
         # Declare relevant pose variables 
         self.depth = None
         self.lat = None
@@ -351,6 +359,16 @@ class algalbloom_tracker_node(object):
         self.waypoint_pub.publish(msg)
         rospy.loginfo('Published waypoint')
 
+    def get_gps_position(self):
+        """ Returns current position of SAM for simualted and real world operation """
+
+        # Add offset if gps is simulated (i.e. real gsp position does not corresponnd to the mission plan)
+        if self.simulate_gps:
+            return [self.lon + self.simulated_lon_offset,self.lat + self.simulated_lat_offset] 
+
+        return [self.lon,self.lat]
+            
+
     def tick_control(self,x0, step, dynamics, grid, estimator, init_heading, meas_per, include_time=False, filter=False):
         """ Perform the control law """
 
@@ -369,7 +387,8 @@ class algalbloom_tracker_node(object):
 
         rospy.loginfo("Ticking control law")
 
-        current_position = [self.lon,self.lat]
+        # Get the current position
+        current_position = self.get_gps_position()
 
         # ==============================================================================================================
         # Initialisation

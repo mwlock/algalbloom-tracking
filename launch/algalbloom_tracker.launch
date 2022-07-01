@@ -4,6 +4,9 @@
 
     <node name="algalbloom_tracker" pkg="smarc_algal_bloom_tracking" type="algalbloom_tracker.py" output="screen">
 	<param name="data_file_base_path" value="$(arg data_file_base_path)"/>
+	<param name="simulate_gps_position" value="False"/>
+	<param name="lat_centre" value="10"/>
+	<param name="lon_centre" value="10"/>
     </node>
 
 </launch>
