@@ -529,6 +529,11 @@ class algalbloom_tracker_node(object):
 
         #self.trajectory parameters
         init_heading = np.array([21, 61.492])
+        
+        # Wait for initial potiion to be set
+        while None in [self.lon, self.lat]:
+            pass
+
         init_coords = [20.87, 61.492]
 
         update_period = self.time_step
