@@ -28,6 +28,14 @@ import geographic_msgs.msg
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots()
 
+from dataclasses import dataclass
+
+
+@dataclass
+class Position:
+    lat: float
+    lon: float
+
 class GPEstimator:
     def __init__(self, kernel, s, range_m, params=None, earth_radius=6369345):
         if not (kernel == 'RQ' or kernel == 'MAT'):
@@ -148,50 +156,6 @@ class Dynamics:
             u_norm = u * self.speed / np.linalg.norm(u)
             return np.array([u_norm[0], u_norm[1], 1])
 
-# Return GeoGrid
-class GeoGrid:
-    def __init__(self, data, lon, lat, time, t_idx, include_time=False):
-        self.data = data
-        self.lon = lon
-        self.lat = lat
-        self.time = time
-        self.t_idx = t_idx
-
-        if include_time is False:
-            self.field = RegularGridInterpolator((self.lon, self.lat), self.data[:,:,self.t_idx])
-        else:
-            self.field = RegularGridInterpolator((self.lon, self.lat, self.time), self.data)
-
-    def is_within_limits(self, x, include_time=False):
-        if include_time is False:
-            if (self.lon[0] <= x[0] <= self.lon[-1]) and (self.lat[0] <= x[1] <= self.lat[-1]):
-                return True
-        else:
-            if (self.lon[0] <= x[0] <= self.lon[-1]) and (self.lat[0] <= x[1] <= self.lat[-1]) and (self.time[0] <= x[2] <= self.time[-1]):
-                return True
-
-# Read matlab data
-def read_mat_data(timestamp,include_time=False):
-
-    # Get datapath
-    base_path = rospy.get_param('~data_file_base_path')
-
-    # Read mat files
-    chl = scipy.io.loadmat(base_path+'/chl.mat')['chl']
-    lat = scipy.io.loadmat(base_path+'/lat.mat')['lat']
-    lon = scipy.io.loadmat(base_path+'/lon.mat')['lon']
-    time = scipy.io.loadmat(base_path+'/time.mat')['time']
-
-    # Reshape
-    lat = np.reshape(lat,[-1,])
-    lon = np.reshape(lon,[-1,])
-    chl = np.swapaxes(chl,0,2)
-    time = np.reshape(time,[-1,])
-
-    t_idx = np.argmin(np.abs(timestamp - time))
-
-    return GeoGrid(chl, lon, lat, time, t_idx, include_time=include_time)
-
 class algalbloom_tracker_node(object):
 
     # Subscriber callbacks
@@ -219,6 +183,22 @@ class algalbloom_tracker_node(object):
 
     # Init
     def __init__(self):
+
+        self.initial_speed = 1                          # initial speed
+        self.init_heading =np.array([21, 61.492])       # inital heading
+        self.angle = -45                                # zig-zag angle (degrees)
+
+        # Front tracking algorithm parameters
+        self.
+
+
+        # New initalisation
+        self.n_wpts = 0     # number of waypoints
+        self.direction = np.array([21, 61.492])
+        
+
+        # Virtual position will be initialized on first message.
+        self.vp = Position(0,0)
 
         # Declare relevant pose variables 
         self.depth = None
@@ -276,7 +256,7 @@ class algalbloom_tracker_node(object):
         self.std = 1e-3
         self.range = 200
         self.params = [44.29588721, 0.54654887, 0.26656638]
-        self.time_step = 1.5
+        self.time_step = 1
         self.meas_per = int(10 / self.time_step) # measurement period
         self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
 
@@ -522,13 +502,16 @@ class algalbloom_tracker_node(object):
         # else:
         #     return self.traj[:self.i], self.measurements[:self.meas_index], self.grad[:self.meas_index]
 
+    def dispatch_waypoint(self):
+        pass
+
         
 
     
     def run_node(self):
 
         #self.trajectory parameters
-        init_heading = np.array([21, 61.492])
+        init_heading = self.init_heading
         
         # Wait for initial potiion to be set
         while None in [self.lon, self.lat]:
@@ -541,7 +524,12 @@ class algalbloom_tracker_node(object):
         # while True:
         while not rospy.is_shutdown():
         
-            self.tick_control(init_coords, self.time_step, self.dynamics, self.grid, self.est, init_heading, self.meas_per, include_time=False, filter=False)
+            # self.tick_control(init_coords, self.time_step, self.dynamics, self.grid, self.est, init_heading, self.meas_per, include_time=False, filter=False)
+
+            # if self.init:
+            #     pass
+
+            self.dispatch_waypoint()
 
             rate.sleep()
 
