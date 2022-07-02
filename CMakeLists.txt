@@ -161,6 +161,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/algalbloom_tracker.py 
+  src/simulated_chlorophyll_sampler.py 
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
