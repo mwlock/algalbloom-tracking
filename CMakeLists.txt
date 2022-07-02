@@ -11,7 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  # message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,8 +49,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 # add_message_files(
 #   FILES
-#   Chlorophyll.msg
+#   Message1.msg
+#   Message2.msg
 # )
+
 ## Generate services in the 'srv' folder
 # add_service_files(
 #   FILES
@@ -101,13 +102,12 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-# catkin_package(
-# #  INCLUDE_DIRS include
-# #  LIBRARIES smarc_algal_bloom_tracking
-# #  CATKIN_DEPENDS roscpp rospy std_msgs
-#   CATKIN_DEPENDS message_runtime
-# #  DEPENDS system_lib
-# )
+catkin_package(
+#  INCLUDE_DIRS include
+#  LIBRARIES smarc_algal_bloom_tracking
+#  CATKIN_DEPENDS roscpp rospy std_msgs
+#  DEPENDS system_lib
+)
 
 ###########
 ## Build ##
@@ -160,8 +160,7 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  src/algalbloom_tracker.py 
-  src/simulated_chlorophyll_sampler.py 
+  src/algalbloom_tracker.py src/simulated_chlorophyll_sampler.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
