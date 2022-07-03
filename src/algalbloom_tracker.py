@@ -635,7 +635,9 @@ class algalbloom_tracker_node(object):
         lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
         self.publishWaypoint(lat=lat,lon=lon,depth=0)
 
-        pass
+        # Plot calculated waypoint
+        if self.args['show_matplot_lib'] and self.inited:
+            ax.plot(lon,lat,'r.', linewidth=1)
 
     def update_virtual_position(self):
         """ Update virtual position """
