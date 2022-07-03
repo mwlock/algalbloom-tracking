@@ -167,9 +167,16 @@ class algalbloom_tracker_node(object):
 
     def lat_lon__cb(self,fb):
         """ update virtual position of the robot using dead reckoning"""
+
+        # Get position
         self.controller_state.virtual_position.lat = fb.latitude
         self.controller_state.virtual_position.lon = fb.longitude
         # rospy.loginfo(self.controller_state)
+
+        # Update ref if mission not started
+        if not self.inited:
+            self.update_ref()
+            self.inited = True
 
     def waypoint_reached__cb(self,fb):
         if fb.status.text == "WP Reached":
@@ -558,6 +565,13 @@ class algalbloom_tracker_node(object):
             self.dispatch_waypoint()
 
             rate.sleep()
+
+    def update_ref(self):
+        """ Update referece """
+
+        rospy.loginfo("Updating refernce")
+
+        pass
 
 if __name__ == '__main__':
 
