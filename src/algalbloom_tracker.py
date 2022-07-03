@@ -228,7 +228,7 @@ class algalbloom_tracker_node(object):
 
     # Init object
     def __init__(self):
-        
+
         # Arguments
         self.args = {}
         self.args['initial_speed'] = initial_speed = rospy.get_param('~initial_speed')      # inital speed 
@@ -239,6 +239,20 @@ class algalbloom_tracker_node(object):
         self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                     # zig zag angle (degrees)
         self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')         # horizontal_distance (m)
         self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
+
+        # plot first to avoid errors
+        if self.args['show_matplot_lib']:
+            self.timestamp = 1618610399
+            self.include_time = False
+            self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
+            ax.set_aspect('equal')
+            xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
+            p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
+            cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+            cp = fig.colorbar(p, cax=cax)
+            cp.set_label("Chl a density [mm/mm3]")
+            ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.delta_ref])
+            plt.pause(0.0001)
 
         # Chlorophyl samples
         self.samples = np.array([])
@@ -327,21 +341,6 @@ class algalbloom_tracker_node(object):
         # Init
         self.init_flag = False
         self.following_waypoint = False
-
-        # Show matplotlib
-        if self.args['show_matplot_lib']:
-            self.timestamp = 1618610399
-            self.include_time = False
-            self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
-            ax.set_aspect('equal')
-            xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
-            p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
-            cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-            cp = fig.colorbar(p, cax=cax)
-            cp.set_label("Chl a density [mm/mm3]")
-            ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.delta_ref])
-            plt.pause(0.0001)
-
 
         rospy.loginfo("Node init complete.")
 
