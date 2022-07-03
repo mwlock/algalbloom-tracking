@@ -401,6 +401,10 @@ class algalbloom_tracker_node(object):
         rospy.loginfo('Published waypoint')
         rospy.loginfo(msg)
 
+        # Plot calculated waypoint
+        if self.args['show_matplot_lib'] and self.inited:
+            ax.plot(lon,lat,'r.', linewidth=1)
+
     def tick_control(self,x0, step, dynamics, grid, estimator, init_heading, meas_per, include_time=False, filter=False):
         """ Perform the control law """
 
@@ -634,10 +638,6 @@ class algalbloom_tracker_node(object):
         # calculate displacement for waypoint
         lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
         self.publishWaypoint(lat=lat,lon=lon,depth=0)
-
-        # Plot calculated waypoint
-        if self.args['show_matplot_lib'] and self.inited:
-            ax.plot(lon,lat,'r.', linewidth=1)
 
     def update_virtual_position(self):
         """ Update virtual position """
