@@ -243,7 +243,7 @@ class algalbloom_tracker_node(object):
         # self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
         # self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
 
-        self.chlorophyll_sub = rospy.Subscriber(chlorophyll_topic, ChlorophyllSample, self.lat_lon__cb, queue_size=2)
+        self.chlorophyll_sub = rospy.Subscriber(chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)
         rospy.loginfo("Subscribed to {}".format(chlorophyll_topic))
 
         # self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
