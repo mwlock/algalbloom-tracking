@@ -184,7 +184,6 @@ class algalbloom_tracker_node(object):
 
     def waypoint_reached__cb(self,fb):
         if fb.status.text == "WP Reached":
-            self.following_waypoint = False
             rospy.loginfo("Waypoint reached")
 
     def chlorophyl__cb(self,fb):
@@ -256,6 +255,7 @@ class algalbloom_tracker_node(object):
         # Subscriber topics
         chlorophyll_topic = '/sam/algae_tracking/chlorophyll_sampling'
         latlong_topic = '/sam/dr/lat_lon'
+        got_to_waypoint_result = '/sam/ctrl/goto_waypoint/result'
 
         # Subscriber setup
 
@@ -263,13 +263,13 @@ class algalbloom_tracker_node(object):
         # self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
         # self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
 
-        self.depth_sub = rospy.Subscriber(latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)
+        self.depth_sub = rospy.Subscriber(latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)        
+        self.chlorophyll_sub = rospy.Subscriber(chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)      
+        self.goal_reached_sub = rospy.Subscriber(got_to_waypoint_result, GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
+
         rospy.loginfo("Subscribed to {}".format(latlong_topic))
-
-        self.chlorophyll_sub = rospy.Subscriber(chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)
         rospy.loginfo("Subscribed to {}".format(chlorophyll_topic))
-
-        # self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
+        rospy.loginfo("Subscribed to {}".format(got_to_waypoint_result))
 
         # Waypoint enable publisher
         self.enable_waypoint_pub = rospy.Publisher('/sam/algae_farm/enable', Bool, queue_size=1)
@@ -398,6 +398,7 @@ class algalbloom_tracker_node(object):
 
         self.enable_waypoint_pub.publish(self.enable_waypoint_following)
         self.waypoint_pub.publish(msg)
+
         rospy.loginfo('Published waypoint : {},{}'.format(lat,lon))
         rospy.loginfo(msg)
 
