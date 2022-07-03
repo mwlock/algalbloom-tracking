@@ -583,7 +583,7 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have crossed the front
         i = len(self.samples)
-        front_crossed = (self.i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
+        front_crossed = (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
 
         print(" i : {}".format(i))
         print(" front_crossed : {}".format(front_crossed))
