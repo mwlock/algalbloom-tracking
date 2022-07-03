@@ -527,10 +527,6 @@ class algalbloom_tracker_node(object):
         pass       
     
     def run_node(self):
-        
-        # Wait for initial potiion to be set
-        while None in [self.lon, self.lat]:
-            pass
 
         init_coords = [20.87, 61.492]
 
