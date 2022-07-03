@@ -19,3 +19,6 @@ class ControllerState():
 
         # Number of waypoints since last update
         self.n_waypoints = 0
+
+    def __str__(self):
+        return "virtual postion : {},{}\nrelative position : {},{}\ndirection:{}\nspeed:{}\nn_waypoints:{}\n".format(self.virtual_position.lat,self.virtual_position.lon,self.relative_postion.x,self.relative_postion.y,self.direction,self.speed,self.n_waypoints)
