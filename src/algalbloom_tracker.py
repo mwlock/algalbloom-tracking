@@ -22,7 +22,7 @@ from smarc_msgs.msg import GotoWaypoint, LatLonOdometry
 from std_msgs.msg import Float64, Header, Bool, Empty
 from smarc_msgs.srv import LatLonToUTM
 from smarc_msgs.srv import UTMToLatLon
-from smarc_msgs.msg import GotoWaypointActionResult
+from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample
 import geographic_msgs.msg
 
 import matplotlib.pyplot as plt
@@ -31,6 +31,7 @@ fig,ax = plt.subplots()
 from AbsolutePosition import AbsolutePosition
 from RelativePosition import RelativePosition
 from ControllerState import ControllerState
+from ControllerParameters import ControllerParameters
 
 class GPEstimator:
     def __init__(self, kernel, s, range_m, params=None, earth_radius=6369345):
@@ -173,42 +174,68 @@ class algalbloom_tracker_node(object):
             self.following_waypoint = False
             rospy.loginfo("Waypoint reached")
 
+    def chlorophyl__cb(self,fb):
+
+        # read values
+        lat = fb.lat
+        lon = fb.lon
+        sample = fb.sample
+
+        # add to list of measurements
+        self.samples = np.append(self.samples,sample)
+
     # Return true if pose remains uninitialized
     def pose_is_none(self):
         return None in [self.depth,self.lat,self.lon,self.x,self.y]
 
-    # Init
+    def init_tracker(self):
+        """ Initialise controller and such """
+
+        # Relative position
+        self.controller_state.relative_postion.x = 0
+        self.controller_state.relative_postion.y = 0
+
+        # Init virtual position (init on first message from dead reckoning)
+        self.controller_state.virtual_position.lat = 0
+        self.controller_state.virtual_position.lon = 0
+
+        # Init controller state
+        self.controller_state.n_waypoints = 0
+        self.controller_state.speed = self.args['initial_speed']
+        self.controller_state.direction = self.args['initial_heading']  # (degrees)
+
+    # Init object
     def __init__(self):
-
-        self.initial_speed = 1                          # initial speed
-        self.init_heading =np.array([21, 61.492])       # inital heading
-        self.angle = -45                                # zig-zag angle (degrees)
-
-        # Front tracking algorithm parameters
-        # self.
-
-
-        # New initalisation
-        self.n_wpts = 0     # number of waypoints
-        self.direction = np.array([21, 61.492])
         
+        # Arguments
+        self.args = {}
+        self.args['initial_speed'] = initial_speed = rospy.get_param('~initial_speed')      # inital speed 
+        self.args['initial_heading']  = rospy.get_param('~initial_heading')                 # initial heading (degrees)
+        self.args['target_value']  = rospy.get_param('~target_value')                       # target chlorophyll value
+        self.args['following_gain']  = rospy.get_param('~following_gain')
+        self.args['seeking_gain']  = rospy.get_param('~seeking_gain')
+        self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                     # zig zag angle (degrees)
+        self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')         # horizontal_distance (m)
 
-        # Virtual position will be initialized on first message.
-        self.vp = Position(0,0)
+        # Chlorophyl samples
+        self.samples = np.array([])
+        self.last_sample = rospy.Time.now()
 
-        # Declare relevant pose variables 
-        self.depth = None
-        self.lat = None
-        self.lon = None
-        self.x = None
-        self.y = None
+        # Controller 
+        self.controller_state = ControllerState()
+        self.controller_params = ControllerParameters()
+
+        self.inited = False
+        self.waypoints_cleared = True
+        self.front_crossed = False
 
         # Subscribe to relevant topics
-        self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
-        self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
-        self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
-        self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
-        self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
+        # self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
+        # self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
+        # self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
+        # self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
+        self.chlorophyll_sub = rospy.Subscriber('/sam/dr/lat_lon', ChlorophyllSample, self.lat_lon__cb, queue_size=2)
+        # self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
 
         # Waypoint enable publisher
         self.enable_waypoint_pub = rospy.Publisher('/sam/algae_farm/enable', Bool, queue_size=1)
@@ -240,12 +267,6 @@ class algalbloom_tracker_node(object):
         self.delta_ref = 7.45
         self.speed = 0.00004497 # 5m/s
         self.dynamics = Dynamics(self.alpha_seek, self.alpha_follow, self.delta_ref, self.speed)
-
-        # WGS84 grid
-        self.args = 1618610399
-        self.include_time = False
-        self.timestamp = 1618610399
-        self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
 
         # Gaussian Process Regression
         self.kernel = "MAT"
@@ -530,5 +551,6 @@ if __name__ == '__main__':
 
     rospy.init_node("algalbloom_tracker")
     tracking = algalbloom_tracker_node()
+    algalbloom_tracker_node.init_tracker()
     tracking.run_node()
         
