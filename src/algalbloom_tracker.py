@@ -585,18 +585,16 @@ class algalbloom_tracker_node(object):
         # Determine if we have crossed the front
         i = len(self.samples)
         front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
-
-        print(i < self.estimation_trigger_val-1)
-        print(self.samples[-1] < 0.95*self.args['delta_ref'])
-        print("sample : {}".format(self.samples[-1]))
-        print(" estimation_trigger_val : {}".format(self.estimation_trigger_val))
-        print(" delta_ref : {}".format(self.args['delta_ref']))
-        print(" i : {}".format(i))
-        print(" front_crossed : {}".format(front_crossed))
+        print(" Crossed the front : {}".format(front_crossed))
 
         distance = self.controller_params.distance if front_crossed else 0
         d1 = distance / math.tan(math.radians(self.controller_params.angle))
         along_track_displacement = d1 if front_crossed else self.controller_params.distance
+
+        print(" distance : {}".format(distance))
+        print(" d1 : {}".format(d1))
+        print(" along_track_displacement : {}".format(along_track_displacement))
+        print(" self.controller_params.distance : {}".format(self.controller_params.distance))        
 
         # Determine the next waypoint
         next_wp = RelativePosition(along_track_displacement,sign*distance)
