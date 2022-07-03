@@ -240,6 +240,15 @@ class algalbloom_tracker_node(object):
         self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')         # horizontal_distance (m)
         self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
 
+        # Move these elsewhere (TODO)
+        # Algorithm settings
+        self.n_iter = int(3e5) # 3e5
+        self.n_meas = 125 # 125
+        self.estimation_trigger_val = (self.n_meas-1) * self.meas_per
+        self.grad_filter_len = 2 # 2
+        self.meas_filter_len = 3 # 3
+        self.alpha = 0.95 # Gradient update factor, 0.95
+
         # plot first to avoid errors
         if self.args['show_matplot_lib']:
             self.timestamp = 1618610399
@@ -326,14 +335,6 @@ class algalbloom_tracker_node(object):
         self.time_step = 1
         self.meas_per = int(10 / self.time_step) # measurement period
         self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
-
-        # Algorithm settings
-        self.n_iter = int(3e5) # 3e5
-        self.n_meas = 125 # 125
-        self.estimation_trigger_val = (self.n_meas-1) * self.meas_per
-        self.grad_filter_len = 2 # 2
-        self.meas_filter_len = 3 # 3
-        self.alpha = 0.95 # Gradient update factor, 0.95
 
         # Meas filter
         self.weights_meas = None
