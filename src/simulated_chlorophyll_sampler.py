@@ -103,6 +103,7 @@ class chlorophyll_sampler_node(object):
         # Publish sample message
         sample = ChlorophyllSample()
         sample.header = Header()
+        sample.header.stamp = rospy.Time.now()
         sample.lat = self.lat
         sample.lon = self.lon
         sample.sample = val
