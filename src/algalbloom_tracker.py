@@ -30,11 +30,33 @@ fig,ax = plt.subplots()
 
 from dataclasses import dataclass
 
-
 @dataclass
-class Position:
+class AbosolutePosition:
     lat: float
     lon: float
+
+@dataclass
+class RelativePisition:
+    x : float
+    y : float
+
+@dataclass
+class ControllerState:
+
+    # Position of the vehicle
+    virtual_position : AbosolutePosition  
+
+    # Position of the vehicle relative to the virtual vehicle
+    relative_position : RelativePisition
+
+    # Track bearing (rad)
+    direction : float
+
+    # Speed in m/s
+    speed : float
+
+    # Number of waypoints since last update
+    n_waypoints : int
 
 class GPEstimator:
     def __init__(self, kernel, s, range_m, params=None, earth_radius=6369345):
@@ -189,7 +211,7 @@ class algalbloom_tracker_node(object):
         self.angle = -45                                # zig-zag angle (degrees)
 
         # Front tracking algorithm parameters
-        self.
+        # self.
 
 
         # New initalisation
@@ -503,10 +525,7 @@ class algalbloom_tracker_node(object):
         #     return self.traj[:self.i], self.measurements[:self.meas_index], self.grad[:self.meas_index]
 
     def dispatch_waypoint(self):
-        pass
-
-        
-
+        pass       
     
     def run_node(self):
 
