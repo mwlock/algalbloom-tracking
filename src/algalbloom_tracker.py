@@ -555,6 +555,6 @@ if __name__ == '__main__':
 
     rospy.init_node("algalbloom_tracker")
     tracking = algalbloom_tracker_node()
-    algalbloom_tracker_node.init_tracker()
+    tracking.init_tracker()
     tracking.run_node()
         
