@@ -98,16 +98,16 @@ class chlorophyll_sampler_node(object):
 
         # Get sample
         std = 1e-3 # standard deviation of measurement
-        sample = self.grid.field(current_position) + np.random.normal(0, std)
+        val = self.grid.field(current_position) + np.random.normal(0, std)
 
         # Publish sample message
         sample = ChlorophyllSample()
         sample.lat = self.lat
         sample.lon = self.lon
-        sample.sample = sample
+        sample.sample = val
 
         # Publish message
-        rospy.loginfo('Publishing sample : {} @ {},{}'.format(sample.sample,sample.lat,sample.lon))
+        rospy.loginfo('Publishing sample : {} at {},{}'.format(sample.sample,sample.lat,sample.lon))
         self.chlorophyll_publisher.publish(sample)
 
     def run_node(self):
