@@ -249,6 +249,17 @@ class algalbloom_tracker_node(object):
         self.meas_filter_len = 3 # 3
         self.alpha = 0.95 # Gradient update factor, 0.95
 
+        # Move these elsewhere (TODO)
+        # Gaussian Process Regression
+        self.kernel = "MAT"
+        self.std = 1e-3
+        self.range = 200
+        self.params = [44.29588721, 0.54654887, 0.26656638]
+        self.time_step = 1
+        self.meas_per = int(10 / self.time_step) # measurement period
+        self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
+
+
         # plot first to avoid errors
         if self.args['show_matplot_lib']:
             self.timestamp = 1618610399
@@ -326,15 +337,6 @@ class algalbloom_tracker_node(object):
         self.delta_ref = 7.45
         self.speed = 0.00004497 # 5m/s
         self.dynamics = Dynamics(self.alpha_seek, self.alpha_follow, self.delta_ref, self.speed)
-
-        # Gaussian Process Regression
-        self.kernel = "MAT"
-        self.std = 1e-3
-        self.range = 200
-        self.params = [44.29588721, 0.54654887, 0.26656638]
-        self.time_step = 1
-        self.meas_per = int(10 / self.time_step) # measurement period
-        self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
 
         # Meas filter
         self.weights_meas = None
