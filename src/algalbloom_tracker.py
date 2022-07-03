@@ -527,9 +527,6 @@ class algalbloom_tracker_node(object):
         pass       
     
     def run_node(self):
-
-        #self.trajectory parameters
-        init_heading = self.init_heading
         
         # Wait for initial potiion to be set
         while None in [self.lon, self.lat]:
