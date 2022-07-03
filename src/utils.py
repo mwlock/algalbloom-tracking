@@ -14,7 +14,7 @@ class Utils():
     @staticmethod
     def displace(current_position,dx,dy):
 
-        current_utm_coords = utm.from_latlon((current_position.lat, current_position.lon))
+        current_utm_coords = utm.from_latlon(current_position.lat, current_position.lon)
         x = current_utm_coords[0] + dx
         y = current_utm_coords[1] + dy
 
