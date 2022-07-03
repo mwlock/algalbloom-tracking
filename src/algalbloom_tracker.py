@@ -398,7 +398,7 @@ class algalbloom_tracker_node(object):
 
         self.enable_waypoint_pub.publish(self.enable_waypoint_following)
         self.waypoint_pub.publish(msg)
-        rospy.loginfo('Published waypoint')
+        rospy.loginfo('Published waypoint : {},{}'.format(lat,lon))
         rospy.loginfo(msg)
 
         # Plot calculated waypoint
