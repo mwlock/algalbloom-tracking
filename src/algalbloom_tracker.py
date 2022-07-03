@@ -329,6 +329,8 @@ class algalbloom_tracker_node(object):
 
         # Show matplotlib
         if self.args['show_matplot_lib']:
+            self.timestamp = 1618610399
+            self.include_time = False
             self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
             ax.set_aspect('equal')
             xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
