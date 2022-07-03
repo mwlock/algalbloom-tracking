@@ -620,8 +620,7 @@ class algalbloom_tracker_node(object):
         rospy.loginfo(" Crossed the front : {}".format(front_crossed))
 
         distance = self.controller_params.distance if front_crossed else 0
-        d1 = distance / math.tan(math.radians(self.controller_params.angle))
-        along_track_displacement = d1 if front_crossed else self.controller_params.distance
+        along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance
 
         # Determine the next waypoint
         next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
