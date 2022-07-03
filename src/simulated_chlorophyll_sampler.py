@@ -10,7 +10,7 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 import rospy
-from std_msgs.msg import Float64, Header, Bool, Empty
+from std_msgs.msg import Float64, Header, Bool, Empty, Header
 from geographic_msgs.msg import GeoPoint
 from smarc_msgs.msg import ChlorophyllSample
 
@@ -102,6 +102,7 @@ class chlorophyll_sampler_node(object):
 
         # Publish sample message
         sample = ChlorophyllSample()
+        sample.header = Header()
         sample.lat = self.lat
         sample.lon = self.lon
         sample.sample = val
