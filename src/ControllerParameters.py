@@ -1,15 +1,15 @@
 class ControllerParameters:
 
-    def __init__(self,angle,distance,seeking_gain,following_gain):
+    def __init__(self):
         
         # Angle with track bearing (rad)
-        self.angle = angle
+        self.angle = 0
 
         # Horizontal distance travelled by the vehicle.
-        self.distance
+        self.distance = 0
 
         # Front seeking gain
-        self.seeking_gain
+        self.seeking_gain = 0
 
         # Front following gain
-        self.following_gain
+        self.following_gain = 0
