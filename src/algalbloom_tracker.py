@@ -241,15 +241,6 @@ class algalbloom_tracker_node(object):
         self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
 
         # Move these elsewhere (TODO)
-        # Algorithm settings
-        self.n_iter = int(3e5) # 3e5
-        self.n_meas = 125 # 125
-        self.estimation_trigger_val = (self.n_meas-1) * self.meas_per
-        self.grad_filter_len = 2 # 2
-        self.meas_filter_len = 3 # 3
-        self.alpha = 0.95 # Gradient update factor, 0.95
-
-        # Move these elsewhere (TODO)
         # Gaussian Process Regression
         self.kernel = "MAT"
         self.std = 1e-3
@@ -257,7 +248,15 @@ class algalbloom_tracker_node(object):
         self.params = [44.29588721, 0.54654887, 0.26656638]
         self.time_step = 1
         self.meas_per = int(10 / self.time_step) # measurement period
-        self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
+
+        # Move these elsewhere (TODO)
+        # Algorithm settings
+        self.n_iter = int(3e5) # 3e5
+        self.n_meas = 125 # 125
+        self.estimation_trigger_val = (self.n_meas-1) * self.meas_per
+        self.grad_filter_len = 2 # 2
+        self.meas_filter_len = 3 # 3
+        self.alpha = 0.95 # Gradient update factor, 0.95
 
 
         # plot first to avoid errors
