@@ -598,16 +598,12 @@ class algalbloom_tracker_node(object):
         print(next_wp.x)
         print(next_wp.y)
 
-        print(" along_track_displacement : {}".format(along_track_displacement))
-        print(" self.controller_params.distance : {}".format(self.controller_params.distance)) 
-        print(" sign*distance : {}".format(sign*distance))       
-
-
         # Bearing should always be 45%?
         bearing, range = Utils.toPolar(next_wp.x,next_wp.y)
 
         # Add current direction to bearing
         bearing += self.controller_state.direction
+        rospy.loginfo("Next waypoint is has bearing and range : ".format(bearing,range))
         bearing = math.radians(bearing)
 
         # calculate change from current position
