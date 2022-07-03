@@ -114,6 +114,7 @@ class chlorophyll_sampler_node(object):
         """ Start sampling """
 
         # Sampling rate
+        print(1/self.update_period)
         rate = rospy.Rate(1/self.update_period)
 
         while not rospy.is_shutdown():
