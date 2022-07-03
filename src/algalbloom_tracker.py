@@ -380,6 +380,7 @@ class algalbloom_tracker_node(object):
         self.enable_waypoint_pub.publish(self.enable_waypoint_following)
         self.waypoint_pub.publish(msg)
         rospy.loginfo('Published waypoint')
+        rospy.loginfo(msg)
 
     def tick_control(self,x0, step, dynamics, grid, estimator, init_heading, meas_per, include_time=False, filter=False):
         """ Perform the control law """
@@ -583,8 +584,11 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have crossed the front
         i = len(self.samples)
-        front_crossed = (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
+        front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
 
+        print(i < self.estimation_trigger_val-1)
+        print(self.samples[-1] < 0.95*self.args['delta_ref'])
+        print("sample : {}".format(self.samples[-1]))
         print(" estimation_trigger_val : {}".format(self.estimation_trigger_val))
         print(" delta_ref : {}".format(self.args['delta_ref']))
         print(" i : {}".format(i))
