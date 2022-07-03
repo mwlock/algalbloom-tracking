@@ -592,7 +592,7 @@ class algalbloom_tracker_node(object):
             self.dispatch_waypoint()
 
             # Plot position
-            if self.args['show_matplot_lib']:
+            if self.args['show_matplot_lib'] and self.inited:
                 ax.plot(self.controller_state.virtual_position.lon,self.controller_state.virtual_position.lat,'r.', linewidth=1)
                 plt.pause(0.0001)
 
