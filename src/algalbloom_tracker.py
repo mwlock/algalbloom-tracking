@@ -32,6 +32,7 @@ from AbsolutePosition import AbsolutePosition
 from RelativePosition import RelativePosition
 from ControllerState import ControllerState
 from ControllerParameters import ControllerParameters
+from utils import Utils
 
 class GPEstimator:
     def __init__(self, kernel, s, range_m, params=None, earth_radius=6369345):
@@ -216,6 +217,12 @@ class algalbloom_tracker_node(object):
         self.controller_state.speed = self.args['initial_speed']
         self.controller_state.direction = self.args['initial_heading']  # (degrees)
 
+        # Init controller params
+        self.controller_params.angle = self.args['zig_zag_angle']
+        self.controller_params.distance = self.args['horizontal_distance']
+        self.controller_params.following_gain = self.args['following_gain']
+        self.controller_params.seeking_gain = self.args['seeking_gain']
+
     # Init object
     def __init__(self):
         
@@ -223,7 +230,7 @@ class algalbloom_tracker_node(object):
         self.args = {}
         self.args['initial_speed'] = initial_speed = rospy.get_param('~initial_speed')      # inital speed 
         self.args['initial_heading']  = rospy.get_param('~initial_heading')                 # initial heading (degrees)
-        self.args['target_value']  = rospy.get_param('~target_value')                       # target chlorophyll value
+        self.args['delta_ref']  = rospy.get_param('~delta_ref')                             # target chlorophyll value
         self.args['following_gain']  = rospy.get_param('~following_gain')
         self.args['seeking_gain']  = rospy.get_param('~seeking_gain')
         self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                     # zig zag angle (degrees)
@@ -569,7 +576,48 @@ class algalbloom_tracker_node(object):
     def update_ref(self):
         """ Update referece """
 
-        rospy.loginfo("Updating refernce")
+        rospy.loginfo("Updating reference")
+
+        # Determine if y displacement should be positive or negative
+        sign = 2 * (self.controller_state.n_waypoints % 2) - 1
+
+        # Determine if we have crossed the front
+        i = len(self.samples)
+        front_crossed = (self.i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
+
+        print(" i : {}".format(i))
+        print(" front_crossed : {}".format(front_crossed))
+
+        distance = self.controller_params.distance if front_crossed else 0
+        d1 = distance / math.tan(math.radians(self.controller_params.angle))
+        along_track_displacement = d1 if front_crossed else self.controller_params.distance
+
+        # Determine the next waypoint
+        next_wp = RelativePosition(along_track_displacement,sign*distance)
+        rospy.loginfo("Next waypoint is {} m, {} m relative to current position".format(next_wp.x,next_wp.y))
+
+        # Bearing should always be 45%?
+        bearing, range = Utils.toPolar(next_wp.x,next_wp.y)
+
+        # Add current direction to bearing
+        bearing += self.controller_state.direction
+        bearing = math.radians(bearing)
+
+        # calculate change from current position
+        dx = range*math.cos(bearing)
+        dy = range*math.sin(bearing)
+
+        # calculate displacement for waypoint
+        lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
+        self.publishWaypoint(lat=lat,lon=lon,depth=0)
+
+
+
+
+        pass
+
+    def update_virtual_position(self):
+        """ Update virtual position """
 
         pass
 

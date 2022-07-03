@@ -14,7 +14,7 @@
 	<param name="threshold" value="0.1"/>
 	<!-- plan parameters -->
 	<param name="initial_heading" value="0.0"/>
-	<param name="target_value" value="1.0"/>
+	<param name="delta_ref" value="7.45"/>
 
     </node>
 

@@ -162,6 +162,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   src/algalbloom_tracker.py src/simulated_chlorophyll_sampler.py
   src/AbsolutePosition.py src/RelativePosition.py src/ControllerState.py src/ControllerParameters.py
+  src/utils.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
