@@ -1,0 +1,9 @@
+<launch>
+	<!-- Data parameters -->
+	<arg name="data_file_base_path" default="$(find smarc_algal_bloom_tracking)/data"/>
+
+    <node name="simulated_chlorophyll_sampler" pkg="smarc_algal_bloom_tracking" type="simulated_chlorophyll_sampler.py" output="screen">
+	<param name="data_file_base_path" value="$(arg data_file_base_path)"/>
+    </node>
+
+</launch>
