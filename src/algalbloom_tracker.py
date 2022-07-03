@@ -176,7 +176,7 @@ class algalbloom_tracker_node(object):
 
     def chlorophyl__cb(self,fb):
 
-        rospy.loginfo("Received sample : {}".format(fb))
+        rospy.loginfo('Received sample : {} at {},{}'.format(fb.sample,fb.lat,fb.lon))
 
         # read values
         lat = fb.lat
@@ -185,7 +185,7 @@ class algalbloom_tracker_node(object):
 
         # add to list of measurements
         self.samples = np.append(self.samples,sample)
-        rospy.loginfo(sample)
+        rospy.loginfo(self.samples)
         
 
     # Return true if pose remains uninitialized
