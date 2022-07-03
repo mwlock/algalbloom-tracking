@@ -263,7 +263,8 @@ class algalbloom_tracker_node(object):
                 service_exists = True
                 break
             except:
-                pass       
+                pass    
+        rospy.loginfo("Aquired services")
 
         # Setup dynamics
         self.alpha_seek = 30
@@ -295,6 +296,8 @@ class algalbloom_tracker_node(object):
         # Init
         self.init_flag = False
         self.following_waypoint = False
+
+        rospy.loginfo("Node init complete.")
 
     # Convert latlon to UTM
     def latlon_to_utm(self,lat,lon,z,in_degrees=False):
