@@ -591,14 +591,17 @@ class algalbloom_tracker_node(object):
         d1 = distance / math.tan(math.radians(self.controller_params.angle))
         along_track_displacement = d1 if front_crossed else self.controller_params.distance
 
-        print(" distance : {}".format(distance))
-        print(" d1 : {}".format(d1))
-        print(" along_track_displacement : {}".format(along_track_displacement))
-        print(" self.controller_params.distance : {}".format(self.controller_params.distance))        
-
         # Determine the next waypoint
         next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
         rospy.loginfo("Next waypoint is {} m, {} m relative to current position".format(next_wp.x,next_wp.y))
+
+        print(next_wp.x)
+        print(next_wp.y)
+
+        print(" along_track_displacement : {}".format(along_track_displacement))
+        print(" self.controller_params.distance : {}".format(self.controller_params.distance)) 
+        print(" sign*distance : {}".format(sign*distance))       
+
 
         # Bearing should always be 45%?
         bearing, range = Utils.toPolar(next_wp.x,next_wp.y)
