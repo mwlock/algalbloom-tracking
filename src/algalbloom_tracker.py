@@ -169,7 +169,7 @@ class algalbloom_tracker_node(object):
         """ update virtual position of the robot using dead reckoning"""
         self.controller_state.virtual_position.lat = fb.latitude
         self.controller_state.virtual_position.lon = fb.longitude
-        rospy.loginfo(self.controller_state)
+        # rospy.loginfo(self.controller_state)
 
     def waypoint_reached__cb(self,fb):
         if fb.status.text == "WP Reached":
