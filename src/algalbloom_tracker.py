@@ -186,7 +186,6 @@ class algalbloom_tracker_node(object):
         # add to list of measurements
         self.samples = np.append(self.samples,sample)    
         self.samples_positions = np.append(self.samples_positions, position,axis=0)
-        rospy.loginfo(self.samples_positions)
 
     # Return true if pose remains uninitialized
     def pose_is_none(self):
