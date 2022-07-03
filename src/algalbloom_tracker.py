@@ -166,8 +166,10 @@ class algalbloom_tracker_node(object):
         self.y = fb.data
 
     def lat_lon__cb(self,fb):
-        self.lat = fb.latitude
-        self.lon = fb.longitude
+        """ update virtual position of the robot using dead reckoning"""
+        self.controller_state.virtual_position.lat = fb.latitude
+        self.controller_state.virtual_position.lon = fb.longitude
+        rospy.loginfo(self.controller_state)
 
     def waypoint_reached__cb(self,fb):
         if fb.status.text == "WP Reached":
@@ -235,13 +237,16 @@ class algalbloom_tracker_node(object):
 
         # Subscriber topics
         chlorophyll_topic = '/sam/algae_tracking/chlorophyll_sampling'
+        latlong_topic = '/sam/dr/lat_lon'
 
         # Subscriber setup
 
         # self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
         # self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
         # self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
-        # self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
+
+        self.depth_sub = rospy.Subscriber(latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)
+        rospy.loginfo("Subscribed to {}".format(latlong_topic))
 
         self.chlorophyll_sub = rospy.Subscriber(chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)
         rospy.loginfo("Subscribed to {}".format(chlorophyll_topic))
