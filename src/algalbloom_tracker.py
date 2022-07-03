@@ -597,7 +597,7 @@ class algalbloom_tracker_node(object):
         print(" self.controller_params.distance : {}".format(self.controller_params.distance))        
 
         # Determine the next waypoint
-        next_wp = RelativePosition(along_track_displacement,sign*distance)
+        next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
         rospy.loginfo("Next waypoint is {} m, {} m relative to current position".format(next_wp.x,next_wp.y))
 
         # Bearing should always be 45%?
