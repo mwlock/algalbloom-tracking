@@ -598,8 +598,9 @@ class algalbloom_tracker_node(object):
 
             # Plot position
             if self.args['show_matplot_lib'] and self.inited:
-                ax.plot(self.controller_state.virtual_position.lon,self.controller_state.virtual_position.lat,'r.', linewidth=1)
-                plt.pause(0.0001)
+                if not 0 in [self.controller_state.virtual_position.lon,self.controller_state.virtual_position.lat]:                    
+                    ax.plot(self.controller_state.virtual_position.lon,self.controller_state.virtual_position.lat,'r.', linewidth=1)
+                    plt.pause(0.0001)
 
             rate.sleep()
 
