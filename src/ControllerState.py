@@ -3,19 +3,19 @@ from RelativePosition import RelativePosition
 
 class ControllerState():
 
-    def __init__(self,virtual_position,relative_postion,direction,speed,n_waypoints):
+    def __init__(self):
 
         # Position of the vehicle
-        self.virtual_position = virtual_position
+        self.virtual_position = AbsolutePosition()
 
         # Position of the vehicle relative to the virtual vehicle
-        self.relative_postion = relative_postion
+        self.relative_postion = RelativePosition()
 
         # Track bearing (rad)
-        self.direction = direction
+        self.direction = 0
 
         # Speed in m/s
-        self.speed = speed
+        self.speed = 0
 
         # Number of waypoints since last update
-        self.n_waypoints = n_waypoints
+        self.n_waypoints = 0

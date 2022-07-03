@@ -1,5 +1,5 @@
 class AbsolutePosition(object):
 
-    def __init__(self,lat,lon):
-        self.lat = lat
-        self.lon = lon
+    def __init__(self):
+        self.lat = 0
+        self.lon = 0
