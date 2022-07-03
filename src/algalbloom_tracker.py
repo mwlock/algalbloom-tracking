@@ -251,7 +251,7 @@ class algalbloom_tracker_node(object):
             cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
             cp = fig.colorbar(p, cax=cax)
             cp.set_label("Chl a density [mm/mm3]")
-            ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.delta_ref])
+            ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.args['delta_ref']])
             plt.pause(0.0001)
 
         # Chlorophyl samples
