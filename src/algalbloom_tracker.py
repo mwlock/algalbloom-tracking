@@ -25,6 +25,10 @@ from smarc_msgs.srv import UTMToLatLon
 from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample
 import geographic_msgs.msg
 
+# Sampler import
+from simulated_chlorophyll_sampler import GeoGrid
+from simulated_chlorophyll_sampler import read_mat_data
+
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots()
 
@@ -130,7 +134,6 @@ def grad_moving_average_2D(grad, idx, n, weights):
 
     return np.array([x_ma, y_ma])
 
-
 # Vehicle dynamics
 class Dynamics:
     def __init__(self, alpha_seek, alpha_follow, delta_ref, speed):
@@ -235,6 +238,7 @@ class algalbloom_tracker_node(object):
         self.args['seeking_gain']  = rospy.get_param('~seeking_gain')
         self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                     # zig zag angle (degrees)
         self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')         # horizontal_distance (m)
+        self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
 
         # Chlorophyl samples
         self.samples = np.array([])
@@ -322,6 +326,19 @@ class algalbloom_tracker_node(object):
         # Init
         self.init_flag = False
         self.following_waypoint = False
+
+        # Show matplotlib
+        if self.args['show_matplot_lib']:
+            self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
+            ax.set_aspect('equal')
+            xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
+            p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
+            cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+            cp = fig.colorbar(p, cax=cax)
+            cp.set_label("Chl a density [mm/mm3]")
+            ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.delta_ref])
+            plt.pause(0.0001)
+
 
         rospy.loginfo("Node init complete.")
 
@@ -585,7 +602,7 @@ class algalbloom_tracker_node(object):
         # Determine if we have crossed the front
         i = len(self.samples)
         front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
-        print(" Crossed the front : {}".format(front_crossed))
+        rospy.loginfo(" Crossed the front : {}".format(front_crossed))
 
         distance = self.controller_params.distance if front_crossed else 0
         d1 = distance / math.tan(math.radians(self.controller_params.angle))
@@ -610,9 +627,6 @@ class algalbloom_tracker_node(object):
         # calculate displacement for waypoint
         lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
         self.publishWaypoint(lat=lat,lon=lon,depth=0)
-
-
-
 
         pass
 

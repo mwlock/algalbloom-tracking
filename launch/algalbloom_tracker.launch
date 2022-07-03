@@ -5,7 +5,8 @@
 	<!-- Tracker node -->
     <node name="algalbloom_tracker" pkg="smarc_algal_bloom_tracking" type="algalbloom_tracker.py" output="screen">
 	<param name="data_file_base_path" value="$(arg data_file_base_path)"/>
-		<!-- control parameters -->
+	<param name="show_matplot_lib" value="True"/>
+	<!-- control parameters -->
 	<param name="initial_speed" value="1.0"/>
 	<param name="following_gain" value="3.0"/>
 	<param name="seeking_gain" value="1.0"/>
