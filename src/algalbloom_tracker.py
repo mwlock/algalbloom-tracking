@@ -233,12 +233,19 @@ class algalbloom_tracker_node(object):
         self.waypoints_cleared = True
         self.front_crossed = False
 
-        # Subscribe to relevant topics
+        # Subscriber topics
+        chlorophyl_topic = '/sam/algae_tracking/chlorophyll_sampling'
+
+        # Subscriber setup
+        
         # self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
         # self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
         # self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
         # self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
-        self.chlorophyll_sub = rospy.Subscriber('/sam/dr/lat_lon', ChlorophyllSample, self.lat_lon__cb, queue_size=2)
+
+        self.chlorophyll_sub = rospy.Subscriber(chlorophyl_topic, ChlorophyllSample, self.lat_lon__cb, queue_size=2)
+        rospy.loginfo("Subscribed to {}".format(chlorophyl_topic))
+
         # self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
 
         # Waypoint enable publisher
