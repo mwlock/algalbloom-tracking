@@ -179,10 +179,11 @@ class algalbloom_tracker_node(object):
 
         # Update ref if mission not started
         if not self.inited:
-            self.update_ref()
             self.inited = True
+            self.update_ref()           
 
     def waypoint_reached__cb(self,fb):
+        """ Waypoint reached"""
         if fb.status.text == "WP Reached":
             rospy.loginfo("Waypoint reached")
 
