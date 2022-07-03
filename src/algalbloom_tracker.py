@@ -179,13 +179,14 @@ class algalbloom_tracker_node(object):
         rospy.loginfo('Received sample : {} at {},{}'.format(fb.sample,fb.lat,fb.lon))
 
         # read values
-        lat = fb.lat
-        lon = fb.lon
+        position = np.array([fb.lat,fb.lon])
         sample = fb.sample
         self.last_sample = fb.header.stamp
 
         # add to list of measurements
-        self.samples = np.append(self.samples,sample)        
+        self.samples = np.append(self.samples,sample)    
+        self.samples_positions = np.append(self.samples_positions, position)
+        rospy.loginfo(self.samples_positions)
 
     # Return true if pose remains uninitialized
     def pose_is_none(self):
@@ -222,6 +223,7 @@ class algalbloom_tracker_node(object):
 
         # Chlorophyl samples
         self.samples = np.array([])
+        self.samples_positions = np.array([])
         self.last_sample = rospy.Time.now()
 
         # Controller 
