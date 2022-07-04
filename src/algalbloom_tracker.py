@@ -194,9 +194,34 @@ class algalbloom_tracker_node(object):
 
 
     def waypoint_reached__cb(self,fb):
-        """ Waypoint reached"""
+        """ Waypoint reached
+        
+        Logic checking the threshold for proximity to the waypoint is handled by the line following action"""
+
+        # Determine if waypoint has been reached
         if fb.status.text == "WP Reached":
+
             rospy.loginfo("Waypoint reached")
+
+            # TODO - Check if the waypoint reached was not already reached? I.e. repetitve signal from bt
+
+            # Check that previous waypoints were reached
+            if not self.waypoints_cleared:
+                return 
+
+            self.controller_state.n_waypoints +=1
+
+            # Switch direction of the zig zag
+            if self.controller_state.n_waypoints  > 2:
+
+                rospy.loginfo("Switching direction")
+                self.controller_state.n_waypoints = 0
+                self.update_direction()
+            
+
+
+
+
 
     def chlorophyl__cb(self,fb):
         """ Callback when a sensor reading is received 
@@ -234,13 +259,16 @@ class algalbloom_tracker_node(object):
         # Init controller state
         self.controller_state.n_waypoints = 0
         self.controller_state.speed = self.args['initial_speed']
-        self.controller_state.direction = self.args['initial_heading']  # (degrees)
+        self.controller_state.direction = self.args['initial_heading']  # (radians)
 
         # Init controller params
         self.controller_params.angle = self.args['zig_zag_angle']
         self.controller_params.distance = self.args['horizontal_distance']
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
+
+        # Setup estimator
+        self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
 
         # Subscribe to topics
         self.depth_sub = rospy.Subscriber(self.latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)        
@@ -302,6 +330,9 @@ class algalbloom_tracker_node(object):
         self.samples = np.array([])
         self.samples_positions =  np.empty((0,2), dtype=float)
         self.last_sample = rospy.Time.now()
+
+        # Gradient
+        self.gradients = np.empty((0,2), dtype=float)
 
         # Controller 
         self.controller_state = ControllerState()
@@ -625,7 +656,7 @@ class algalbloom_tracker_node(object):
         # Determine if y displacement should be positive or negative
         sign = 2 * (self.controller_state.n_waypoints % 2) - 1
 
-        # Determine if we have crossed the front
+        # Determine if we have reached the front
         i = len(self.samples)
         front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
         rospy.loginfo(" Crossed the front : {}".format(front_crossed))
@@ -662,6 +693,68 @@ class algalbloom_tracker_node(object):
     def reset_virtual_position(self):
         """ Reset virtual position """
         pass
+
+    def update_direction(self):
+        """ Update the direction of the track """
+
+        rospy.loginfo("Updating bearing direction")
+
+        # Determine if we have reached the front
+        i = len(self.samples)
+        front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
+        rospy.loginfo(" Crossed the front : {}".format(front_crossed))
+
+        # Carry on moving in straight line if the front has not been crossed
+        if not front_crossed:
+            pass
+
+        # Estimate direction of the front
+        grad = self.estimate_gradient()
+
+        # Perform control
+        self.controller_state.direction = self.perform_control(grad=grad)
+
+        pass
+
+    def estimate_gradient(self):
+        """ Estimate gradient """
+
+        # TODO (Add windowed filtering on samples to smoothen out?)
+
+        # Estimate the gradient
+        grad = np.array(self.est.est_grad(self.samples_positions[-self.n_meas:], \
+                                                            self.samples[-self.n_meas:])).squeeze()
+        self.gradients = np.append(self.gradients,grad)
+
+        # Normalise gradient (unit vector)
+        self.gradients[-1] = self.gradients[-1] / np.linalg.norm(self.gradients[-1])
+
+        # Apply decaying factor to gradient (not sure if this will work)
+        self.gradients[-1] = self.gradients[-2] * self.alpha + self.gradients[-1] * (1-self.alpha)
+
+        return self.gradients[-1]
+
+    def perform_control(self,grad):
+        """ Calculate the control action 
+        
+        returns the new heading"""
+
+        # Create vector orthogonal to gradient
+        epsi = np.array([-grad[1],grad[0]])
+
+        error = self.args['delta_ref'] - self.samples[-1]
+        u_seek = self.controller_params.seeking_gain * error * grad
+        u_follow = self.controller_params.following_gain * epsi
+        u = u_seek + u_follow
+
+        rospy.loginfo(("error : {}".format(error)))
+        rospy.loginfo(("seek control : {}".format(u_seek)))
+        rospy.loginfo(("follow control : {}".format(u_follow)))
+
+        heading = math.atan2(u[1],u[0])
+        rospy.loginfo(("heading : {} (degrees)".format(math.degrees(heading))))
+
+        return heading
 
 if __name__ == '__main__':
 
