@@ -1,12 +1,15 @@
-from AbsolutePosition import AbsolutePosition
-from RelativePosition import RelativePosition
+
+from positions import AbsolutePosition,RelativePosition,VirtualPosition
 
 class ControllerState():
 
     def __init__(self):
 
         # Position of the vehicle
-        self.virtual_position = AbsolutePosition()
+        self.absolute_position = AbsolutePosition()
+
+        # Position of the vertual vehicle
+        self.virtual_position = VirtualPosition()
 
         # Position of the vehicle relative to the virtual vehicle
         self.relative_postion = RelativePosition()

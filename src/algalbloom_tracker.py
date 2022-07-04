@@ -32,10 +32,9 @@ from simulated_chlorophyll_sampler import read_mat_data
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots()
 
-from AbsolutePosition import AbsolutePosition
-from RelativePosition import RelativePosition
-from ControllerState import ControllerState
+from positions import AbsolutePosition,RelativePosition,VirtualPosition
 from ControllerParameters import ControllerParameters
+from ControllerState import ControllerState
 from utils import Utils
 
 class GPEstimator:
@@ -173,14 +172,26 @@ class algalbloom_tracker_node(object):
         """ update virtual position of the robot using dead reckoning"""
 
         # Get position
-        self.controller_state.virtual_position.lat = fb.latitude
-        self.controller_state.virtual_position.lon = fb.longitude
+        self.controller_state.absolute_position.lat = fb.latitude
+        self.controller_state.absolute_position.lon = fb.longitude
         # rospy.loginfo(self.controller_state)
+
+        # Set virtual postion (initalisation of vp)
+        if not self.inited:           
+            self.controller_state.virtual_position.lat = fb.latitude
+            self.controller_state.virtual_position.lon = fb.longitude
+
+        # Calculate displacement (in m)
+        dx,dy = Utils.displacement(current_position=self.controller_state.absolute_position,virtual_position=self.controller_state.virtual_position)
+        self.controller_state.relative_postion.x = dx
+        self.controller_state.relative_postion.y = dy
 
         # Update ref if mission not started
         if not self.inited:
-            self.inited = True
-            self.update_ref()           
+            
+            self.update_ref()  
+            self.inited = True 
+
 
     def waypoint_reached__cb(self,fb):
         """ Waypoint reached"""
@@ -188,10 +199,15 @@ class algalbloom_tracker_node(object):
             rospy.loginfo("Waypoint reached")
 
     def chlorophyl__cb(self,fb):
+        """ Callback when a sensor reading is received 
+        
+        The sensor reading should be appended to the list of sensor readings, along with the associated
+        lat lon position where the reading was taken. """
 
+        # logging stuff :)
         rospy.loginfo('Received sample : {} at {},{}'.format(fb.sample,fb.lat,fb.lon))
 
-        # read values
+        # read values (the sensor is responsible for providing the Geo stamp i.e. lat lon co-ordinates)
         position = np.array([[fb.lat,fb.lon]])
         sample = fb.sample
         self.last_sample = fb.header.stamp
@@ -212,8 +228,8 @@ class algalbloom_tracker_node(object):
         self.controller_state.relative_postion.y = 0
 
         # Init virtual position (init on first message from dead reckoning)
-        self.controller_state.virtual_position.lat = 0
-        self.controller_state.virtual_position.lon = 0
+        self.controller_state
+        self.controller_state.absolute_position.lon = 0
 
         # Init controller state
         self.controller_state.n_waypoints = 0
@@ -225,6 +241,15 @@ class algalbloom_tracker_node(object):
         self.controller_params.distance = self.args['horizontal_distance']
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
+
+        # Subscribe to topics
+        self.depth_sub = rospy.Subscriber(self.latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)        
+        self.chlorophyll_sub = rospy.Subscriber(self.chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)      
+        self.goal_reached_sub = rospy.Subscriber(self.got_to_waypoint_result, GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
+
+        rospy.loginfo("Subscribed to {}".format(self.latlong_topic))
+        rospy.loginfo("Subscribed to {}".format(self.chlorophyll_topic))
+        rospy.loginfo("Subscribed to {}".format(self.got_to_waypoint_result))
 
     # Init object
     def __init__(self):
@@ -287,23 +312,9 @@ class algalbloom_tracker_node(object):
         self.front_crossed = False
 
         # Subscriber topics
-        chlorophyll_topic = '/sam/algae_tracking/chlorophyll_sampling'
-        latlong_topic = '/sam/dr/lat_lon'
-        got_to_waypoint_result = '/sam/ctrl/goto_waypoint/result'
-
-        # Subscriber setup
-
-        # self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
-        # self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
-        # self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
-
-        self.depth_sub = rospy.Subscriber(latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)        
-        self.chlorophyll_sub = rospy.Subscriber(chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)      
-        self.goal_reached_sub = rospy.Subscriber(got_to_waypoint_result, GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
-
-        rospy.loginfo("Subscribed to {}".format(latlong_topic))
-        rospy.loginfo("Subscribed to {}".format(chlorophyll_topic))
-        rospy.loginfo("Subscribed to {}".format(got_to_waypoint_result))
+        self.chlorophyll_topic = '/sam/algae_tracking/chlorophyll_sampling'
+        self.latlong_topic = '/sam/dr/lat_lon'
+        self.got_to_waypoint_result = '/sam/ctrl/goto_waypoint/result'
 
         # Waypoint enable publisher
         self.enable_waypoint_pub = rospy.Publisher('/sam/algae_farm/enable', Bool, queue_size=1)
@@ -600,8 +611,8 @@ class algalbloom_tracker_node(object):
 
             # Plot position
             if self.args['show_matplot_lib'] and self.inited:
-                if not 0 in [self.controller_state.virtual_position.lon,self.controller_state.virtual_position.lat]:                    
-                    ax.plot(self.controller_state.virtual_position.lon,self.controller_state.virtual_position.lat,'r.', linewidth=1)
+                if not 0 in [self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat]:                    
+                    ax.plot(self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat,'r.', linewidth=1)
                     plt.pause(0.0001)
 
             rate.sleep()
@@ -641,12 +652,15 @@ class algalbloom_tracker_node(object):
         dy = range*math.sin(bearing)
 
         # calculate displacement for waypoint
-        lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
+        lat, lon = Utils.displace(current_position=self.controller_state.absolute_position,dx=dx,dy=dy)
         self.publishWaypoint(lat=lat,lon=lon,depth=0)
 
     def update_virtual_position(self):
         """ Update virtual position """
-
+        pass
+    
+    def reset_virtual_position(self):
+        """ Reset virtual position """
         pass
 
 if __name__ == '__main__':
