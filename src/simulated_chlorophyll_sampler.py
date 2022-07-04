@@ -61,8 +61,14 @@ def read_mat_data(timestamp,include_time=False):
 class chlorophyll_sampler_node(object):
 
     def lat_lon__cb(self,fb):
-        self.lat = fb.latitude
-        self.lon = fb.longitude
+
+        # Determine the offset of the GPS
+        if not self.init and self.offset_gps:
+            self.gps_lat_offset = fb.latitude - self.self.lat_centre
+            self.gps_lon_offset = fb.longitude - self.self.lon_centre
+
+        self.lat = fb.latitude + self.self.lat_centre
+        self.lon = fb.longitude + self.self.lon_centre
         self.init = True
 
     def __init__(self):
@@ -78,6 +84,16 @@ class chlorophyll_sampler_node(object):
         self.include_time = False
         self.timestamp = 1618610399
         self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
+
+        # Check if data should be offset
+        self.gps_lat_offset = 0
+        self.gps_lon_offset = 0
+        self.lat_centre =  0
+        self.lon_centre =  0
+        self.offset_gps = rospy.get_param('~offset_gps')
+        if self.offset_gps:
+            self.lat_centre =  rospy.get_param('~starting_lat')
+            self.lon_centre =  rospy.get_param('~starting_lon')
 
         # Subscribe to SAM posiiton
         self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
