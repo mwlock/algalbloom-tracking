@@ -330,15 +330,18 @@ class algalbloom_tracker_node(object):
         self.latlong_topic = '/sam/dr/lat_lon'
         self.got_to_waypoint_result = '/sam/ctrl/goto_waypoint/result'
 
+        self.live_wp_base_topic = 'sam/smarc_bt/live_wp/'
+        self.wapoint_topic=self.live_wp_base_topic+'wp'
+        self.wapoint_enable_topic=self.live_wp_base_topic+'enable'
+
         # Waypoint enable publisher
-        self.enable_waypoint_pub = rospy.Publisher('/sam/algae_farm/enable', Bool, queue_size=1)
+        self.enable_waypoint_pub = rospy.Publisher(self.wapoint_enable_topic, Bool, queue_size=1)
         self.enable_waypoint_following = Bool()
         self.enable_waypoint_following.data = True
 
         # Waypoint following publisher
-        self.waypoint_topic = '/sam/algae_farm/wp'
         self.waypoint_topic_type = GotoWaypoint
-        self.waypoint_pub = rospy.Publisher(self.waypoint_topic, self.waypoint_topic_type,queue_size=5)
+        self.waypoint_pub = rospy.Publisher(self.wapoint_topic, self.waypoint_topic_type,queue_size=5)
 
         # Latlong to UTM service
         # wait for the latlon_to_utm service to exist
