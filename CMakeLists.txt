@@ -163,6 +163,7 @@ catkin_install_python(PROGRAMS
   src/algalbloom_tracker.py src/simulated_chlorophyll_sampler.py
   src/positions.py
   src/utils.py
+  src/ControllerState.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

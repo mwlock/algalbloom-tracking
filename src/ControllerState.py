@@ -2,6 +2,7 @@
 from positions import AbsolutePosition,RelativePosition,VirtualPosition
 
 class ControllerState():
+    """ Controler state"""
 
     def __init__(self):
 
