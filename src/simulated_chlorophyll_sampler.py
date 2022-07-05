@@ -87,7 +87,7 @@ class chlorophyll_sampler_node(object):
         self.init = False
 
         # Determine if data needs to be scaled
-        self.scale_factor =  float(1)/rospy.get_param('~data_downs_scale_factor') 
+        self.scale_factor =  float(1)/float(rospy.get_param('~data_downs_scale_factor'))
 
         # WGS84 grid (lookup-table for sampling)
         self.include_time = False
