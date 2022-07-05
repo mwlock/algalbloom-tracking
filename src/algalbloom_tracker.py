@@ -253,7 +253,6 @@ class algalbloom_tracker_node(object):
         self.controller_state.relative_postion.y = 0
 
         # Init virtual position (init on first message from dead reckoning)
-        print(self.controller_state.__dict__)
         self.controller_state.absolute_position.lat = 0
         self.controller_state.absolute_position.lon = 0
 
@@ -265,7 +264,6 @@ class algalbloom_tracker_node(object):
         # Init controller params
         self.controller_params.angle = self.args['zig_zag_angle']
         self.controller_params.distance = self.args['horizontal_distance']
-        print("CONTROLLER PARAMS SET - SIZ ZAG DIST : {}".format(self.controller_params.distance) )
 
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
@@ -451,7 +449,7 @@ class algalbloom_tracker_node(object):
 
         # Plot calculated waypoint
         if self.args['show_matplot_lib'] and self.inited:
-            ax.plot(lon,lat,'r.', linewidth=1)
+            ax.plot(lon,lat,'g.', linewidth=1)
 
     def tick_control(self,x0, step, dynamics, grid, estimator, init_heading, meas_per, include_time=False, filter=False):
         """ Perform the control law """
@@ -666,8 +664,6 @@ class algalbloom_tracker_node(object):
 
         distance = self.controller_params.distance if front_crossed else 0
         along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance
-
-        print('TESST {}'.format(self.controller_params.distance))
 
         # Determine the next waypoint
         next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
