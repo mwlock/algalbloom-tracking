@@ -751,6 +751,7 @@ class algalbloom_tracker_node(object):
 
         # Estimate direction of the front
         grad = self.estimate_gradient()
+        rospy.loginfo("Estimated gradient : {}".format(grad))
 
         # Perform control
         self.controller_state.direction = self.perform_control(grad=grad)
