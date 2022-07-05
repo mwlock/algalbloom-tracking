@@ -264,6 +264,8 @@ class algalbloom_tracker_node(object):
         # Init controller params
         self.controller_params.angle = self.args['zig_zag_angle']
         self.controller_params.distance = self.args['horizontal_distance']
+        print("CONTROLLER PARAMS SET - SIZ ZAG DIST : {}".format(self.controller_params.distance) )
+
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
 
