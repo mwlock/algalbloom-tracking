@@ -253,7 +253,7 @@ class algalbloom_tracker_node(object):
         self.controller_state.relative_postion.y = 0
 
         # Init virtual position (init on first message from dead reckoning)
-        self.controller_state
+        self.controller_state.absolute_position.lat = 0
         self.controller_state.absolute_position.lon = 0
 
         # Init controller state
