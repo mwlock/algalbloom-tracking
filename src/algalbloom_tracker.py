@@ -748,7 +748,8 @@ class algalbloom_tracker_node(object):
         # Carry on moving in straight line if the front has not been crossed
         if not front_crossed:
             # Do not change direction
-            return
+            pass
+            # return
 
         # Estimate direction of the front
         grad = self.estimate_gradient()
