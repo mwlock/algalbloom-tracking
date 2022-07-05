@@ -220,7 +220,7 @@ class algalbloom_tracker_node(object):
             self.controller_state.n_waypoints +=1
 
             # Switch direction of the zig zag
-            if self.controller_state.n_waypoints  > 2:
+            if self.controller_state.n_waypoints  >= 2:
 
                 rospy.loginfo("Switching direction")
                 self.controller_state.n_waypoints = 0
@@ -743,11 +743,12 @@ class algalbloom_tracker_node(object):
         # Determine if we have reached the front
         i = len(self.samples)
         front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
-        rospy.loginfo(" Crossed the front : {}".format(front_crossed))
+        rospy.loginfo("Crossed the front : {}".format(front_crossed))
 
         # Carry on moving in straight line if the front has not been crossed
         if not front_crossed:
-            pass
+            # Do not change direction
+            return
 
         # Estimate direction of the front
         grad = self.estimate_gradient()
@@ -759,12 +760,18 @@ class algalbloom_tracker_node(object):
     def estimate_gradient(self):
         """ Estimate gradient """
 
+        # TODO FIX - WE ARE RETURNING A SCALAR
         # TODO (Add windowed filtering on samples to smoothen out?)
+
+        rospy.loginfo("SAMPLE POSITIONS : {}".format(self.samples_positions[-1]))
 
         # Estimate the gradient
         grad = np.array(self.est.est_grad(self.samples_positions[-self.n_meas:], \
                                                             self.samples[-self.n_meas:])).squeeze()
+        rospy.loginfo("GRAD : {}".format(grad))
+
         self.gradients = np.append(self.gradients,grad)
+        rospy.loginfo("GRADs : {}".format(self.gradients))
 
         # Normalise gradient (unit vector)
         self.gradients[-1] = self.gradients[-1] / np.linalg.norm(self.gradients[-1])
