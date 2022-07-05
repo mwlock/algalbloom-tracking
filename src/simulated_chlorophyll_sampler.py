@@ -36,29 +36,33 @@ class GeoGrid:
             if (self.lon[0] <= x[0] <= self.lon[-1]) and (self.lat[0] <= x[1] <= self.lat[-1]) and (self.time[0] <= x[2] <= self.time[-1]):
                 return True
 
-# Read matlab data
-def read_mat_data(timestamp,include_time=False):
-
-    # Get datapath
-    base_path = rospy.get_param('~data_file_base_path')
-
-    # Read mat files
-    chl = scipy.io.loadmat(base_path+'/chl.mat')['chl']
-    lat = scipy.io.loadmat(base_path+'/lat.mat')['lat']
-    lon = scipy.io.loadmat(base_path+'/lon.mat')['lon']
-    time = scipy.io.loadmat(base_path+'/time.mat')['time']
-
-    # Reshape
-    lat = np.reshape(lat,[-1,])
-    lon = np.reshape(lon,[-1,])
-    chl = np.swapaxes(chl,0,2)
-    time = np.reshape(time,[-1,])
-
-    t_idx = np.argmin(np.abs(timestamp - time))
-
-    return GeoGrid(chl, lon, lat, time, t_idx, include_time=include_time)
-
 class chlorophyll_sampler_node(object):
+
+    # Read matlab data
+    def read_mat_data(self,timestamp,include_time=False):
+
+        # Get datapath
+        base_path = rospy.get_param('~data_file_base_path')
+
+        # Read mat files
+        chl = scipy.io.loadmat(base_path+'/chl.mat')['chl']
+        lat = scipy.io.loadmat(base_path+'/lat.mat')['lat']
+        lon = scipy.io.loadmat(base_path+'/lon.mat')['lon']
+        time = scipy.io.loadmat(base_path+'/time.mat')['time']
+
+        # Reshape
+        lat = np.reshape(lat,[-1,])
+        lon = np.reshape(lon,[-1,])
+        chl = np.swapaxes(chl,0,2)
+        time = np.reshape(time,[-1,])
+
+        # Scale data        
+        lat = ((lat - lat[0])*self.scale_factor)+lat[0]
+        lon = ((lon - lon[0])*self.scale_factor)+lon[0]
+
+        t_idx = np.argmin(np.abs(timestamp - time))
+
+        return GeoGrid(chl, lon, lat, time, t_idx, include_time=include_time)
 
     def lat_lon__cb(self,fb):
 
@@ -80,10 +84,13 @@ class chlorophyll_sampler_node(object):
         self.lon = None
         self.init = False
 
+        # Determine if data needs to be scaled
+        self.scale_factor =  1/rospy.get_param('~data_downs_scale_factor') 
+
         # WGS84 grid (lookup-table for sampling)
         self.include_time = False
         self.timestamp = 1618610399
-        self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
+        self.grid = self.read_mat_data(self.timestamp, include_time=self.include_time)
 
         # Check if data should be offset
         self.gps_lat_offset = 0

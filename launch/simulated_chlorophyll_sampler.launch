@@ -4,6 +4,7 @@
 
     <node name="simulated_chlorophyll_sampler" pkg="smarc_algal_bloom_tracking" type="simulated_chlorophyll_sampler.py" output="screen">
 	<param name="data_file_base_path" value="$(arg data_file_base_path)"/>
+	<param name="data_downs_scale_factor" value="100"/>
 	<param name="offset_gps" value="False"/>
 	<param name="starting_lat" value="True"/>
 	<param name="starting_lon" value="True"/>
