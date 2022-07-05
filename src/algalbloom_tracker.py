@@ -305,6 +305,7 @@ class algalbloom_tracker_node(object):
         self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                     # zig zag angle (degrees)
         self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')         # horizontal_distance (m)
         self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
+        self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')     # number of samples before estimation
 
         # Move these elsewhere (TODO)
         # Gaussian Process Regression
@@ -678,8 +679,9 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
+        front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
+        rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
 
         distance = self.controller_params.distance if front_crossed else 0
         along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance
@@ -701,7 +703,7 @@ class algalbloom_tracker_node(object):
         dy = range*math.sin(bearing)
 
         # calculate displacement for waypoint
-        lat, lon = Utils.displace(current_position=self.controller_state.absolute_position,dx=dx,dy=dy)
+        lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
         self.publishWaypoint(lat=lat,lon=lon,depth=0)
 
     def get_track_position(self,origin,use_relative_position=True):
@@ -730,6 +732,11 @@ class algalbloom_tracker_node(object):
         self.controller_state.virtual_position.lat = lat
         self.controller_state.virtual_position.lon = lon
         rospy.loginfo("New virtual position : {},{}".format(lat,lon))
+
+        # Plot new virtual position
+        if self.args['show_matplot_lib']:
+            rospy.loginfo('plotting waypoint')
+            ax.plot(lon,lat,'y.', linewidth=1)
     
     def reset_virtual_position(self):
         """ Reset virtual position """
@@ -742,14 +749,14 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
+        front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
+        rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
 
         # Carry on moving in straight line if the front has not been crossed
         if not front_crossed:
             # Do not change direction
-            pass
-            # return
+            return
 
         # Estimate direction of the front
         grad = self.estimate_gradient()
