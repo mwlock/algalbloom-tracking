@@ -124,39 +124,6 @@ def nonabs_1D_dist(x, X):
 
     return res
 
-
-def grad_moving_average_2D(grad, idx, n, weights):
-    val_x = grad[idx - n+1:idx + 1, 0]
-    val_y = grad[idx - n+1:idx + 1, 1]
-
-    x_ma = np.average(val_x, weights=weights)
-    y_ma = np.average(val_y, weights=weights)
-
-    return np.array([x_ma, y_ma])
-
-# Vehicle dynamics
-class Dynamics:
-    def __init__(self, alpha_seek, alpha_follow, delta_ref, speed):
-        self.alpha_seek = alpha_seek
-        self.alpha_follow = alpha_follow
-        self.delta_ref = delta_ref
-        self.speed = speed
-
-
-    def __call__(self, delta, grad, include_time=False):
-        self.u_x = self.alpha_seek*(self.delta_ref - delta)*grad[0] \
-                            - self.alpha_follow*grad[1]
-        self.u_y = self.alpha_seek*(self.delta_ref - delta)*grad[1] \
-                            + self.alpha_follow*grad[0]
-
-        u = np.array([self.u_x, self.u_y])
-        if include_time is False:
-            return u * self.speed / np.linalg.norm(u)
-        else:
-            # Normalization still to be tested in TV conditions
-            u_norm = u * self.speed / np.linalg.norm(u)
-            return np.array([u_norm[0], u_norm[1], 1])
-
 class algalbloom_tracker_node(object):
 
     # Subscriber callbacks
@@ -241,9 +208,6 @@ class algalbloom_tracker_node(object):
         The sensor reading should be appended to the list of sensor readings, along with the associated
         lat lon position where the reading was taken. """
 
-        # logging stuff :)
-        rospy.loginfo('Received sample : {} at {},{}'.format(fb.sample,fb.lat,fb.lon))
-
         # read values (the sensor is responsible for providing the Geo stamp i.e. lat lon co-ordinates)
         position = np.array([[fb.lat,fb.lon]])
         sample = fb.sample
@@ -252,6 +216,9 @@ class algalbloom_tracker_node(object):
         # add to list of measurements
         self.samples = np.append(self.samples,sample)    
         self.samples_positions = np.append(self.samples_positions, position,axis=0)
+
+        # logging stuff :)
+        rospy.loginfo('Received sample : {} at {},{} (#{})'.format(fb.sample,fb.lat,fb.lon,len(self.samples)))
 
     # Return true if pose remains uninitialized
     def pose_is_none(self):
@@ -393,7 +360,6 @@ class algalbloom_tracker_node(object):
         self.alpha_follow = 1
         self.delta_ref = 7.45
         self.speed = 0.00004497 # 5m/s
-        self.dynamics = Dynamics(self.alpha_seek, self.alpha_follow, self.delta_ref, self.speed)
 
         # Meas filter
         self.weights_meas = None
@@ -506,6 +472,7 @@ class algalbloom_tracker_node(object):
         front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
+        rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
 
         distance = self.controller_params.distance if front_crossed else 0
         along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance
@@ -576,6 +543,7 @@ class algalbloom_tracker_node(object):
         front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
+        rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
 
         # Carry on moving in straight line if the front has not been crossed
         if not front_crossed:
