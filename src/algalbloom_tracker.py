@@ -771,7 +771,7 @@ class algalbloom_tracker_node(object):
                                                             self.samples[-self.n_meas:])).squeeze()
         rospy.loginfo("GRAD : {}".format(grad))
 
-        self.gradients = np.append([self.gradients,grad])
+        self.gradients = np.append(self.gradients,[grad],axis=0)
         rospy.loginfo("GRADs : {}".format(self.gradients))
 
         # Normalise gradient (unit vector)
