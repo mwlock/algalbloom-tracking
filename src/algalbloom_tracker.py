@@ -475,7 +475,8 @@ class algalbloom_tracker_node(object):
         front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
-        rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
+        if len(self.samples)>0:
+            rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
 
         distance = self.controller_params.distance if front_crossed else 0
         along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance
@@ -546,7 +547,8 @@ class algalbloom_tracker_node(object):
         front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
-        rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
+        if len(self.samples)>0:
+            rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
 
         # Carry on moving in straight line if the front has not been crossed
         if not front_crossed:
