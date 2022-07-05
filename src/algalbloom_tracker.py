@@ -778,7 +778,8 @@ class algalbloom_tracker_node(object):
         self.gradients[-1] = self.gradients[-1] / np.linalg.norm(self.gradients[-1])
 
         # Apply decaying factor to gradient (not sure if this will work)
-        self.gradients[-1] = self.gradients[-2] * self.alpha + self.gradients[-1] * (1-self.alpha)
+        if len(self.gradients)>1:
+            self.gradients[-1] = self.gradients[-2] * self.alpha + self.gradients[-1] * (1-self.alpha)
 
         return self.gradients[-1]
 
