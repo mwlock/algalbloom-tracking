@@ -64,11 +64,11 @@ class chlorophyll_sampler_node(object):
 
         # Determine the offset of the GPS
         if not self.init and self.offset_gps:
-            self.gps_lat_offset = fb.latitude - self.self.lat_centre
-            self.gps_lon_offset = fb.longitude - self.self.lon_centre
+            self.gps_lat_offset = fb.latitude - self.lat_centre
+            self.gps_lon_offset = fb.longitude - self.lon_centre
 
-        self.lat = fb.latitude + self.self.lat_centre
-        self.lon = fb.longitude + self.self.lon_centre
+        self.lat = fb.latitude + self.lat_centre
+        self.lon = fb.longitude + self.lon_centre
         self.init = True
 
     def __init__(self):
