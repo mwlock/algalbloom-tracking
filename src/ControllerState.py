@@ -15,6 +15,9 @@ class ControllerState():
         # Position of the vehicle relative to the virtual vehicle
         self.relative_postion = RelativePosition()
 
+        # Position of waypoint
+        self.waypoint_position = AbsolutePosition()
+
         # Track bearing (rad)
         self.direction = 0
 

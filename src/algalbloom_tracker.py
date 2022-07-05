@@ -10,6 +10,7 @@ import scipy.io
 from scipy.interpolate import RegularGridInterpolator
 import sklearn.gaussian_process as gp
 from scipy.spatial.distance import cdist
+from scipy.spatial import distance
 
 # Ros imports
 import rospy
@@ -201,7 +202,14 @@ class algalbloom_tracker_node(object):
         # Determine if waypoint has been reached
         if fb.status.text == "WP Reached":
 
-            rospy.loginfo("Waypoint reached")
+            rospy.loginfo("Waypoint reached signal received")
+
+            # Check distance to waypoint
+            x,y = Utils.displacement(self.controller_state.absolute_position,self.controller_state.waypoint_position)
+            dist = np.linalg.norm(np.array([x,y]))
+            rospy.loginfo("Distance to the waypoint : {}".format(dist))
+            if dist < 5:
+                self.waypoints_cleared = True
 
             # TODO - Check if the waypoint reached was not already reached? I.e. repetitve signal from bt
 
@@ -217,10 +225,14 @@ class algalbloom_tracker_node(object):
                 rospy.loginfo("Switching direction")
                 self.controller_state.n_waypoints = 0
                 self.update_direction()
-            
 
+            # Update position on the track
+            self.update_virtual_position()
 
+            # Send new waypoint
+            self.update_ref()
 
+            self.waypoints_cleared = False
 
 
     def chlorophyl__cb(self,fb):
@@ -448,6 +460,10 @@ class algalbloom_tracker_node(object):
 
         rospy.loginfo('Published waypoint : {},{}'.format(lat,lon))
         rospy.loginfo(msg)
+
+        # Store waypoint
+        self.controller_state.waypoint_position.lat = msg.lat
+        self.controller_state.waypoint_position.lon = msg.lon
 
         # Plot calculated waypoint
         if self.args['show_matplot_lib']:
@@ -688,9 +704,32 @@ class algalbloom_tracker_node(object):
         lat, lon = Utils.displace(current_position=self.controller_state.absolute_position,dx=dx,dy=dy)
         self.publishWaypoint(lat=lat,lon=lon,depth=0)
 
+    def get_track_position(self,origin,use_relative_position=True):
+        """ Return distance along the track """
+
+        if use_relative_position:
+            bearing, range = Utils.toPolar(self.controller_state.relative_postion.x,self.controller_state.relative_postion.y)
+            bearing =- self.controller_state.direction
+
+            x = range * math.cos(bearing)
+            return x
+
+        return None
+
     def update_virtual_position(self):
         """ Update virtual position """
-        pass
+
+        origin = RelativePosition()
+
+        # Get distance along the track
+        x = self.get_track_position(origin=origin)
+        rospy.loginfo("Along track position : {}".format(x))
+
+        lat,lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=x*math.cos(self.controller_state.direction),dy=x*math.sin(self.controller_state.direction))
+
+        self.controller_state.virtual_position.lat = lat
+        self.controller_state.virtual_position.lon = lon
+        rospy.loginfo("New virtual position : {},{}".format(lat,lon))
     
     def reset_virtual_position(self):
         """ Reset virtual position """
@@ -715,8 +754,6 @@ class algalbloom_tracker_node(object):
 
         # Perform control
         self.controller_state.direction = self.perform_control(grad=grad)
-
-        pass
 
     def estimate_gradient(self):
         """ Estimate gradient """

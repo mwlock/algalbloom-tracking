@@ -13,6 +13,7 @@ class Utils():
 
     @staticmethod
     def displace(current_position,dx,dy):
+        """ Returns lat lon after dx and dy displacement """
 
         current_utm_coords = utm.from_latlon(current_position.lat, current_position.lon)
         x = current_utm_coords[0] + dx
