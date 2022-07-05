@@ -326,6 +326,8 @@ class algalbloom_tracker_node(object):
             cp.set_label("Chl a density [mm/mm3]")
             ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.args['delta_ref']])
             plt.pause(0.0001)
+            time.sleep(5) # allow some time for the plot to start
+            
 
         # Chlorophyl samples
         self.samples = np.array([])
@@ -660,7 +662,7 @@ class algalbloom_tracker_node(object):
         # Determine if we have reached the front
         i = len(self.samples)
         front_crossed = not (i < self.estimation_trigger_val-1 or self.samples[-1] < 0.95*self.args['delta_ref'])
-        rospy.loginfo(" Crossed the front : {}".format(front_crossed))
+        rospy.loginfo("Crossed the front : {}".format(front_crossed))
 
         distance = self.controller_params.distance if front_crossed else 0
         along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance
