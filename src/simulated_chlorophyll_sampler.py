@@ -56,6 +56,8 @@ class chlorophyll_sampler_node(object):
         chl = np.swapaxes(chl,0,2)
         time = np.reshape(time,[-1,])
 
+        rospy.loginfo('Scale factor : {}'.format(self.scale_factor))
+
         # Scale data        
         lat = ((lat - lat[0])*self.scale_factor)+lat[0]
         lon = ((lon - lon[0])*self.scale_factor)+lon[0]
