@@ -32,7 +32,7 @@ from simulated_chlorophyll_sampler import read_mat_data
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots()
 
-from positions import AbsolutePosition,RelativePosition,VirtualPosition
+from positions import RelativePosition
 from ControllerParameters import ControllerParameters
 from ControllerState import ControllerState
 from utils import Utils
@@ -253,6 +253,7 @@ class algalbloom_tracker_node(object):
         self.controller_state.relative_postion.y = 0
 
         # Init virtual position (init on first message from dead reckoning)
+        print(self.controller_state.__dict__)
         self.controller_state.absolute_position.lat = 0
         self.controller_state.absolute_position.lon = 0
 
