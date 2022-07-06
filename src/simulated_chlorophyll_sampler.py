@@ -131,6 +131,7 @@ class chlorophyll_sampler_node(object):
             val = self.grid.field(current_position) + np.random.normal(0, std)
         except Exception as e:
             rospy.logwarn("Unable to attain sample at : {} {}".format(self.lat,self.lon))
+            return
 
         # Publish sample message
         sample = ChlorophyllSample()
