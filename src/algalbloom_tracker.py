@@ -448,7 +448,7 @@ class algalbloom_tracker_node(object):
         # Plot calculated waypoint
         if self.args['show_matplot_lib']:
             rospy.loginfo('plotting waypoint')
-            ax.plot(lon,lat,'g.', linewidth=1)
+            ax.plot(lon,lat,'m.', linewidth=1)
 
     def dispatch_waypoint(self):
         pass       
