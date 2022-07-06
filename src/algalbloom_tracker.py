@@ -434,7 +434,8 @@ class algalbloom_tracker_node(object):
         msg.z_control_mode = z_control_modes[0]
         #msg.travel_rpm = 1000
         msg.speed_control_mode = speed_control_mode[1]
-        msg.travel_speed = 5.0
+        # msg.travel_speed = 5.0
+        msg.travel_speed = 1
         msg.pose.header.frame_id = 'utm'
         msg.pose.header.stamp = rospy.Time(0)
         msg.pose.pose.position.x = x
