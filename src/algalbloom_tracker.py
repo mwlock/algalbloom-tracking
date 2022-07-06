@@ -240,7 +240,7 @@ class algalbloom_tracker_node(object):
 
         grad_angle = None
         if self.inited:
-            grad = self.estimate_gradient(self)
+            grad = self.estimate_gradient()
             grad_angle = math.degrees(math.atan2(grad[1],grad[0]))
 
 
