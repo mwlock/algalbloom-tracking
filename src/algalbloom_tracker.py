@@ -11,6 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 import sklearn.gaussian_process as gp
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance
+import signal
 
 # Ros imports
 import rospy
@@ -625,10 +626,28 @@ class algalbloom_tracker_node(object):
 
         return heading
 
+    def close_node(self,signum, frame):
+        rospy.logwarn("Closing node")
+        rospy.logwarn("Attempting to end waypoint following")
+
+        try :
+            self.enable_waypoint_following.data = False
+            self.enable_waypoint_pub.publish(self.enable_waypoint_following)
+            rospy.logwarn("Waypoint following successfully disabled")
+        except Exception as e:
+            rospy.logwarn("Failed to disabled Waypoint following")
+
+        exit(1)
+
 if __name__ == '__main__':
 
     rospy.init_node("algalbloom_tracker")
     tracking = algalbloom_tracker_node()
     tracking.init_tracker()
+
+    # Attach exit handler
+    signal.signal(signal.SIGINT, tracking.close_node)
+
+    # run the node
     tracking.run_node()
         
