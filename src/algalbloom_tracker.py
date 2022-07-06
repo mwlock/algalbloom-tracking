@@ -418,9 +418,13 @@ class algalbloom_tracker_node(object):
     # Publish waypoint to SAM
     def publishWaypoint(self,lat,lon,depth):
 
+        # Make sure lat/lon offset is taken care of
+        lat += self.gps_lat_offset 
+        lon += self.gps_lon_offset 
+
         self.lat_lon_point = geographic_msgs.msg.GeoPoint()
         self.lat_lon_point.latitude = lat
-        self.lat_lon_point.longitude = lon
+        self.lat_lon_point.longitude = lon        
 
         x, y = self.latlon_to_utm(lat=lat,lon=lon,z=depth)
 
@@ -455,6 +459,8 @@ class algalbloom_tracker_node(object):
         # Plot calculated waypoint
         if self.args['show_matplot_lib']:
             rospy.loginfo('plotting waypoint')
+            lat -= self.gps_lat_offset 
+            lon -= self.gps_lon_offset 
             ax.plot(lon,lat,'m.', linewidth=1)
 
     def dispatch_waypoint(self):
@@ -650,4 +656,3 @@ if __name__ == '__main__':
 
     # run the node
     tracking.run_node()
-        
