@@ -76,8 +76,8 @@ class chlorophyll_sampler_node(object):
             self.gps_lat_offset = fb.latitude - self.lat_centre
             self.gps_lon_offset = fb.longitude - self.lon_centre
 
-        self.lat = fb.latitude + self.lat_centre
-        self.lon = fb.longitude + self.lon_centre
+        self.lat = fb.latitude + self.gps_lat_offset
+        self.lon = fb.longitude + self.gps_lon_offset
         self.init = True
 
     def __init__(self):
