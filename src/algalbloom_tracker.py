@@ -231,6 +231,7 @@ class algalbloom_tracker_node(object):
             if self.samples[-1] >= 0.95*self.args['delta_ref']:
                 rospy.loginfo("FRONT HAS BEEN REACHED")
                 self.front_crossed = True
+                self.controller_state.n_waypoints = 2   # trigger begining zig zag 
 
 
         # logging stuff :)
@@ -488,7 +489,7 @@ class algalbloom_tracker_node(object):
     def update_ref(self):
         """ Update referece """
 
-        rospy.loginfo("Updating reference")
+        rospy.loginfo("Determining new waypoint")
 
         # Determine if y displacement should be positive or negative
         sign = 2 * (self.controller_state.n_waypoints % 2) - 1
