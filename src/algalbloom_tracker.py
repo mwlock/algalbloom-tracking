@@ -231,7 +231,12 @@ class algalbloom_tracker_node(object):
             if self.samples[-1] >= 0.95*self.args['delta_ref']:
                 rospy.loginfo("FRONT HAS BEEN REACHED")
                 self.front_crossed = True
-                self.controller_state.n_waypoints = 2   # trigger begining zig zag 
+                # self.controller_state.n_waypoints = 2   # trigger begining zig zag 
+
+                self.controller_state.n_waypoints = 0
+                self.update_direction()
+                self.update_ref()
+                self.waypoints_cleared = False
 
 
         # logging stuff :)
