@@ -62,6 +62,10 @@ class chlorophyll_sampler_node(object):
         lat = ((lat - lat[0])*self.scale_factor)+lat[0]
         lon = ((lon - lon[0])*self.scale_factor)+lon[0]
 
+        # Logging
+        rospy.loginfo("Dimensions of lat {} - {}".format(lat[0],lat[-1]))
+        rospy.loginfo("Dimensions of lon {} - {}".format(lon[0],lon[-1]))
+
         t_idx = np.argmin(np.abs(timestamp - time))
 
         return GeoGrid(chl, lon, lat, time, t_idx, include_time=include_time)
