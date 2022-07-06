@@ -76,13 +76,13 @@ class chlorophyll_sampler_node(object):
             self.gps_lat_offset = fb.latitude - self.lat_centre
             self.gps_lon_offset = fb.longitude - self.lon_centre
 
-        self.lat = fb.latitude - self.gps_lat_offset
+        self.lat = fb.latitude - self.gps_lat_offset 
         self.lon = fb.longitude - self.gps_lon_offset
 
         # Check offset correct set
         if not self.init:
-            lat_error = (fb.latitude - self.gps_lat_offset)
-            long_Error = (fb.longitude - self.gps_lon_offset)
+            lat_error = (fb.latitude - self.gps_lat_offset) - self.lat_centre
+            long_Error = (fb.longitude - self.gps_lon_offset) - self.lon_centre
             rospy.loginfo("Offset error : {}, {}".format(lat_error,long_Error))
 
         self.init = True
