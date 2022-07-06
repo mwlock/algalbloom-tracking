@@ -613,7 +613,7 @@ class algalbloom_tracker_node(object):
         # Plot gradient as arrow?
         grad_norm = self.gradients[-1]
         if self.args['show_matplot_lib'] and self.inited:
-            ax.arrow(self.controller_state.absolute_position.lon,0.005*grad_norm[0],0.005*grad_norm[1],head_length=0.1, fc='b', ec='b')
+            ax.arrow(self.controller_state.absolute_position.lon,0.005*grad_norm[0],0.005*grad_norm[1],head_width=0.05,head_length=0.1, fc='b', ec='b')
             plt.pause(0.0001)
 
         return self.gradients[-1]
