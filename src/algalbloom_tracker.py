@@ -586,7 +586,7 @@ class algalbloom_tracker_node(object):
 
         # Estimate direction of the front
         grad = self.estimate_gradient()
-        grad_heading = math.atan2(grad[1],grad[1]) # rad
+        grad_heading = math.atan2(grad[1],grad[0]) # rad
         rospy.loginfo("Estimated gradient : {} ({} degrees)".format(grad,math.degrees(grad_heading)))
 
         # Perform control
@@ -596,8 +596,6 @@ class algalbloom_tracker_node(object):
         """ Estimate gradient """
 
         # TODO (Add windowed filtering on samples to smoothen out?)
-
-        rospy.loginfo("SAMPLE POSITIONS : {}".format(self.samples_positions[-1]))
 
         # Estimate the gradient
         grad = np.array(self.est.est_grad(self.samples_positions[-self.n_meas:], \
