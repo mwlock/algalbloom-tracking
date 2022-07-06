@@ -3,6 +3,7 @@
 # vim:fenc=utf-8
 
 # Python imports
+from array import array
 import time
 import math
 import numpy as np
@@ -164,10 +165,9 @@ class algalbloom_tracker_node(object):
         self.controller_state.relative_postion.y = dy
 
         # Update ref if mission not started
-        if not self.inited:
-            
+        if not self.inited:            
             self.update_ref()  
-            self.inited = True 
+            self.inited = True            
 
 
     def waypoint_reached__cb(self,fb):
@@ -238,9 +238,14 @@ class algalbloom_tracker_node(object):
                 self.update_ref()
                 self.waypoints_cleared = False
 
+        grad_angle = None
+        if self.inited:
+            grad = self.estimate_gradient(self)
+            grad_angle = math.degrees(math.atan2(grad[1],grad[0]))
+
 
         # logging stuff :)
-        rospy.loginfo('Received sample : {} at {},{} (#{})'.format(fb.sample,fb.lat,fb.lon,len(self.samples)))
+        rospy.loginfo('Received sample : {} at {},{} with estimated gradient {} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))
 
     # Return true if pose remains uninitialized
     def pose_is_none(self):
@@ -603,8 +608,11 @@ class algalbloom_tracker_node(object):
         # TODO (Add windowed filtering on samples to smoothen out?)
 
         # Estimate the gradient
-        grad = np.array(self.est.est_grad(self.samples_positions[-self.n_meas:], \
-                                                            self.samples[-self.n_meas:])).squeeze()
+        if self.has_crossed_the_front():
+            grad = np.array(self.est.est_grad(self.samples_positions[-self.n_meas:], \
+                                                                self.samples[-self.n_meas:])).squeeze()
+        else:
+            grad = np.array(math.cos(self.controller_state.direction),math.sin(self.controller_state.direction))
 
         self.gradients = np.append(self.gradients,[grad],axis=0)
 
