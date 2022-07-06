@@ -8,6 +8,7 @@
 	<param name="offset_gps" value="False"/>
 	<param name="starting_lat" value="True"/>
 	<param name="starting_lon" value="True"/>
+	<param name="sampling_time" value="1.0"/>
     </node>
 
 </launch>

@@ -84,7 +84,7 @@ class chlorophyll_sampler_node(object):
         """ Init the sampler"""
 
         # Init values
-        self.update_period = 3
+        self.update_period = rospy.get_param('~sampling_time')
         self.lat = None
         self.lon = None
         self.init = False
