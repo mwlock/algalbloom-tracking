@@ -495,7 +495,7 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = (i >= self.args['estimation_trigger_val'] or self.front_crossed)
+        front_crossed = self.has_crossed_the_front()
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
         if len(self.samples)>0:
@@ -560,6 +560,11 @@ class algalbloom_tracker_node(object):
         """ Reset virtual position """
         pass
 
+    def has_crossed_the_front(self):
+        """ Logic for determining if the front has been crossed"""
+        i = len(self.samples)
+        return (i >= self.args['estimation_trigger_val'] and self.front_crossed)
+
     def update_direction(self):
         """ Update the direction of the track """
 
@@ -567,7 +572,7 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = (i >= self.args['estimation_trigger_val'] or self.front_crossed)
+        front_crossed = self.has_crossed_the_front()
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
         if len(self.samples)>0:
