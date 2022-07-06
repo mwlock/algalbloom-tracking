@@ -368,18 +368,8 @@ class algalbloom_tracker_node(object):
                 pass    
         rospy.loginfo("Aquired services")
 
-        # Setup dynamics
-        self.alpha_seek = 30
-        self.alpha_follow = 1
-        self.delta_ref = 7.45
-        self.speed = 0.00004497 # 5m/s
-
-        # Meas filter
-        self.weights_meas = None
-
         # Init
         self.init_flag = False
-        self.following_waypoint = False
 
         rospy.loginfo("Node init complete.")
 
