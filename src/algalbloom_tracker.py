@@ -274,6 +274,9 @@ class algalbloom_tracker_node(object):
         self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
         self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')     # number of samples before estimation
 
+        # Factor to scale the data (simulating shorter missions)
+        self.args['scale_factor'] = float(1)/float(rospy.get_param('~data_downs_scale_factor')) 
+
         # Move these elsewhere (TODO)
         # Gaussian Process Regression
         self.kernel = "MAT"
@@ -297,7 +300,7 @@ class algalbloom_tracker_node(object):
         if self.args['show_matplot_lib']:
             self.timestamp = 1618610399
             self.include_time = False
-            self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
+            self.grid = read_mat_data(self.timestamp, include_time=self.include_time,scale_factor=self.args['scale_factor'])
             ax.set_aspect('equal')
             xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
             p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
