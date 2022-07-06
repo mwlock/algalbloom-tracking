@@ -217,6 +217,13 @@ class algalbloom_tracker_node(object):
         self.samples = np.append(self.samples,sample)    
         self.samples_positions = np.append(self.samples_positions, position,axis=0)
 
+        # Check if front has been reached
+        if not self.front_crossed:
+            if self.samples[-1] >= 0.95*self.args['delta_ref']:
+                rospy.loginfo("FRONT HAS BEEN REACHED")
+                self.front_crossed = True
+
+
         # logging stuff :)
         rospy.loginfo('Received sample : {} at {},{} (#{})'.format(fb.sample,fb.lat,fb.lon,len(self.samples)))
 
@@ -475,7 +482,7 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
+        front_crossed = not (i < self.estimation_trigger_val or self.front_crossed)
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
         if len(self.samples)>0:
@@ -547,7 +554,7 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = not (i < self.estimation_trigger_val or self.samples[-1] < 0.95*self.args['delta_ref'])
+        front_crossed = not (i < self.estimation_trigger_val or self.front_crossed)
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
         if len(self.samples)>0:
