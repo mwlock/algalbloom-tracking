@@ -482,7 +482,7 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = not (i < self.estimation_trigger_val or self.front_crossed)
+        front_crossed = not (i < self.args['estimation_trigger_val'] or self.front_crossed)
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
         if len(self.samples)>0:
@@ -554,7 +554,7 @@ class algalbloom_tracker_node(object):
 
         # Determine if we have reached the front
         i = len(self.samples)
-        front_crossed = not (i < self.estimation_trigger_val or self.front_crossed)
+        front_crossed = not (i < self.args['estimation_trigger_val'] or self.front_crossed)
         rospy.loginfo("Crossed the front : {}".format(front_crossed))
         rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
         if len(self.samples)>0:
