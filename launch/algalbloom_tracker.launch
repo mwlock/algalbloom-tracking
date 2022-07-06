@@ -8,8 +8,8 @@
 	<param name="show_matplot_lib" value="True"/>
 	<!-- control parameters -->
 	<param name="initial_speed" value="1.0"/>
-	<param name="following_gain" value="1.0"/>
-	<param name="seeking_gain" value="30.0"/>
+	<param name="following_gain" value="25.0"/>
+	<param name="seeking_gain" value="1.0"/>
 	<param name="zig_zag_angle" value="45.0"/>
 	<param name="horizontal_distance" value="10.0"/>
 	<param name="threshold" value="0.1"/>

@@ -625,9 +625,12 @@ class algalbloom_tracker_node(object):
         u_follow = self.controller_params.following_gain * epsi
         u = u_seek + u_follow
 
+        seek_angle =  math.degrees(math.atan2(u_seek[1],u_seek[0])) 
+        follow_angle = math.degrees(math.atan2(u_follow[1],u_follow[0]))  
+
         rospy.loginfo(("error : {}".format(error)))
-        rospy.loginfo(("seek control : {}".format(u_seek)))
-        rospy.loginfo(("follow control : {}".format(u_follow)))
+        rospy.loginfo(("seek control : {} ({} degrees)".format(u_seek,seek_angle)))
+        rospy.loginfo(("follow control : {} ({} degrees)".format(u_follow,follow_angle)))
 
         heading = math.atan2(u[1],u[0])
         rospy.loginfo(("heading : {} (degrees)".format(math.degrees(heading))))
