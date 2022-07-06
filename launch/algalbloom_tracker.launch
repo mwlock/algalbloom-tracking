@@ -13,12 +13,12 @@
 	<param name="zig_zag_angle" value="45.0"/>
 	<param name="horizontal_distance" value="100.0"/>
 	<param name="threshold" value="0.1"/>
-	<param name="estimation_trigger_val" value="120"/>
-	
+	<param name="estimation_trigger_val" value="120"/>	
 	<!-- plan parameters -->
 	<param name="initial_heading" value="0.0"/>
 	<param name="delta_ref" value="7.45"/>
-
+	<!-- data parameters -->
+	<param name="data_downs_scale_factor" value="100.0"/>
     </node>
 
 </launch>
