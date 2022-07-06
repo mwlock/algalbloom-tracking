@@ -125,8 +125,12 @@ class chlorophyll_sampler_node(object):
             return
 
         # Get sample
-        std = 1e-3 # standard deviation of measurement
-        val = self.grid.field(current_position) + np.random.normal(0, std)
+
+        try:
+            std = 1e-3 # standard deviation of measurement
+            val = self.grid.field(current_position) + np.random.normal(0, std)
+        except Exception as e:
+            rospy.logwarm("Unable to attain sample at : {} {}".format(self.lat,self.lon))
 
         # Publish sample message
         sample = ChlorophyllSample()
