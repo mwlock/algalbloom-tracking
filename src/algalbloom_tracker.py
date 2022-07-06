@@ -139,6 +139,14 @@ class algalbloom_tracker_node(object):
     def lat_lon__cb(self,fb):
         """ update virtual position of the robot using dead reckoning"""
 
+        # Offset position
+        if not self.inited and self.offset_gps:
+            self.gps_lat_offset = fb.latitude - self.lat_centre
+            self.gps_lon_offset = fb.longitude - self.lon_centre
+
+        fb.latitude = fb.latitude - self.gps_lat_offset 
+        fb.longitude = fb.longitude - self.gps_lon_offset
+
         # Get position
         self.controller_state.absolute_position.lat = fb.latitude
         self.controller_state.absolute_position.lon = fb.longitude
@@ -242,6 +250,15 @@ class algalbloom_tracker_node(object):
         self.controller_state.absolute_position.lat = 0
         self.controller_state.absolute_position.lon = 0
 
+        # GPS offset
+        self.gps_lat_offset = 0
+        self.gps_lon_offset = 0
+        self.lat_centre =  0
+        self.lon_centre =  0
+        if self.offset_gps:
+            self.lat_centre =  rospy.get_param('~starting_lat')
+            self.lon_centre =  rospy.get_param('~starting_lon')
+
         # Init controller state
         self.controller_state.n_waypoints = 0
         self.controller_state.speed = self.args['initial_speed']
@@ -250,7 +267,6 @@ class algalbloom_tracker_node(object):
         # Init controller params
         self.controller_params.angle = self.args['zig_zag_angle']
         self.controller_params.distance = self.args['horizontal_distance']
-
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
 
@@ -280,9 +296,8 @@ class algalbloom_tracker_node(object):
         self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')         # horizontal_distance (m)
         self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
         self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')     # number of samples before estimation
-
-        # Factor to scale the data (simulating shorter missions)
         self.args['scale_factor'] = float(1)/float(rospy.get_param('~data_downs_scale_factor')) 
+        self.offset_gps = rospy.get_param('~offset_gps')
 
         # Move these elsewhere (TODO)
         # Gaussian Process Regression
