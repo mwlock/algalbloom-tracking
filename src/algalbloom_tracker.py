@@ -523,6 +523,7 @@ class algalbloom_tracker_node(object):
 
         # Bearing should always be 45%?
         bearing, range = Utils.toPolar(x=next_wp.x,y= next_wp.y)
+        rospy.loginfo("HEADING {} degrees".format(math.degrees(self.controller_state.direction)))
         rospy.loginfo("BEARING {} degrees".format(math.degrees(bearing)))
 
         # Add current direction to bearing
