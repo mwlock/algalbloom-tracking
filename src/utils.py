@@ -9,7 +9,7 @@ class Utils():
     def toPolar(x, y):
         angle = math.atan2(y, x)
         norm = math.sqrt(x * x + y * y)
-        return math.degrees(angle),norm
+        return (angle),norm
 
     @staticmethod
     def displace(current_position,dx,dy):
