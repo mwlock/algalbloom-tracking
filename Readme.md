@@ -7,5 +7,5 @@ Required packages:
 
 Example of recording odom and waypoint locations
 ```bash
-rosbag record -O bag_name /sam/dr/odom /sam/algae_farm/wp
+rosbag record -O bag_name /sam/dr/odom sam/smarc_bt/live_wp/wp /sam/algae_tracking/chlorophyll_sampling
 ```
