@@ -568,7 +568,7 @@ class algalbloom_tracker_node(object):
         # Plot new virtual position
         if self.args['show_matplot_lib']:
             rospy.loginfo('plotting waypoint')
-            ax.plot(lon,lat,'y.', linewidth=1)
+            ax.plot(lon,lat,'w.', linewidth=1)
     
     def reset_virtual_position(self):
         """ Reset virtual position """
