@@ -218,7 +218,8 @@ class algalbloom_tracker_node(object):
         lat lon position where the reading was taken. """
 
         # read values (the sensor is responsible for providing the Geo stamp i.e. lat lon co-ordinates)
-        position = np.array([[fb.lat,fb.lon]])
+        position = np.array([[fb.lon,fb.lat]])
+        rospy.loginfo("lat {}".format(fb.lon))
         sample = fb.sample
         self.last_sample = fb.header.stamp
 
