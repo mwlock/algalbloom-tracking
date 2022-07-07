@@ -519,7 +519,7 @@ class algalbloom_tracker_node(object):
         # Determine the next waypoint
         next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
         next_wp_theta = math.degrees(math.atan2(next_wp.y,next_wp.x))
-        rospy.loginfo("Next waypoint is {} m, {} m relative to current position ({next_wp_theta} degrees )".format(next_wp.x,next_wp.y,next_wp_theta))
+        rospy.loginfo("Next waypoint is {} m, {} m relative to current position ({} degrees )".format(next_wp.x,next_wp.y,next_wp_theta))
 
         # Bearing should always be 45%?
         bearing, range = Utils.toPolar(next_wp.x,next_wp.y)
