@@ -234,8 +234,8 @@ class algalbloom_tracker_node(object):
                 # self.controller_state.n_waypoints = 2   # trigger begining zig zag 
 
                 self.controller_state.n_waypoints = 0
-                self.update_direction()
                 self.update_virtual_position()
+                self.update_direction()                
                 self.update_ref()
                 self.waypoints_cleared = False
 
