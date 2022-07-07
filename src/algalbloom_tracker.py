@@ -528,8 +528,7 @@ class algalbloom_tracker_node(object):
 
         # Add current direction to bearing
         bearing += self.controller_state.direction
-        rospy.loginfo("Next waypoint is has bearing and range : {} {}".format(bearing,range))
-        bearing = math.radians(bearing)
+        rospy.loginfo("Next waypoint is has bearing and range : {} degrees {} m".format(math.degrees(bearing),range))
 
         # calculate change from current position
         dx = range*math.cos(bearing)
