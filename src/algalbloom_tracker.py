@@ -160,7 +160,7 @@ class algalbloom_tracker_node(object):
             self.controller_state.virtual_position.lon = fb.longitude
 
         # Calculate displacement (in m)
-        dx,dy = Utils.displacement(current_position=self.controller_state.absolute_position,virtual_position=self.controller_state.virtual_position)
+        dx,dy = Utils.displacement(virtual_position=self.controller_state.absolute_position,current_position=self.controller_state.virtual_position)
         self.controller_state.relative_postion.x = dx
         self.controller_state.relative_postion.y = dy
 
