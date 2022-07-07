@@ -612,7 +612,7 @@ class algalbloom_tracker_node(object):
             grad = np.array(self.est.est_grad(self.samples_positions[-self.n_meas:], \
                                                                 self.samples[-self.n_meas:])).squeeze()
         else:
-            grad = np.array(math.cos(self.controller_state.direction),math.sin(self.controller_state.direction))
+            grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
 
         self.gradients = np.append(self.gradients,[grad],axis=0)
 
