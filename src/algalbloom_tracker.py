@@ -225,7 +225,7 @@ class algalbloom_tracker_node(object):
 
         # Apply moving average filter (size 3)
         self.samples = np.append(self.samples,sample) 
-        self.samples[-1] = np.avererage(self.samples[-3:])
+        self.samples[-1] = np.average(self.samples[-3:])
 
         # Record sample position   
         self.samples_positions = np.append(self.samples_positions, position,axis=0)
