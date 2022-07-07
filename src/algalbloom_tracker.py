@@ -344,7 +344,7 @@ class algalbloom_tracker_node(object):
             cp.set_label("Chl a density [mm/mm3]")
             ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.args['delta_ref']])
             plt.pause(0.0001)
-            time.sleep(5) # allow some time for the plot to start
+            time.sleep(2) # allow some time for the plot to start
             
 
         # Chlorophyl samples
@@ -543,8 +543,8 @@ class algalbloom_tracker_node(object):
 
         if use_relative_position:
 
-            rospy.loginto("Track position dx : {}".format(self.controller_state.relative_postion.x))
-            rospy.loginto("Track position dy : {}".format(self.controller_state.relative_postion.y))
+            rospy.loginfo("Track position dx : {}".format(self.controller_state.relative_postion.x))
+            rospy.loginfo("Track position dy : {}".format(self.controller_state.relative_postion.y))
             
             bearing, range = Utils.toPolar(x=self.controller_state.relative_postion.x,y=self.controller_state.relative_postion.y)
             rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
