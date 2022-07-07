@@ -542,8 +542,11 @@ class algalbloom_tracker_node(object):
         """ Return distance along the track """
 
         if use_relative_position:
-            bearing, range = Utils.toPolar(self.controller_state.relative_postion.x,self.controller_state.relative_postion.y)
+            bearing, range = Utils.toPolar(x=self.controller_state.relative_postion.x,y=self.controller_state.relative_postion.y)
+            rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
             bearing =- self.controller_state.direction
+            rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
+
 
             x = range * math.cos(bearing)
             return x
