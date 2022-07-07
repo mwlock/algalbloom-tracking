@@ -508,8 +508,8 @@ class algalbloom_tracker_node(object):
         # Determine if we have reached the front
         i = len(self.samples)
         front_crossed = self.has_crossed_the_front()
-        rospy.loginfo("Crossed the front : {}".format(front_crossed))
-        rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
+        # rospy.loginfo("Crossed the front : {}".format(front_crossed))
+        # rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
         if len(self.samples)>0:
             rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
 
@@ -518,7 +518,8 @@ class algalbloom_tracker_node(object):
 
         # Determine the next waypoint
         next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
-        rospy.loginfo("Next waypoint is {} m, {} m relative to current position".format(next_wp.x,next_wp.y))
+        next_wp_theta = math.degrees(math.atan2(next_wp.y,next_wp.x))
+        rospy.loginfo("Next waypoint is {} m, {} m relative to current position ({next_wp_theta} degrees )".format(next_wp.x,next_wp.y,next_wp_theta))
 
         # Bearing should always be 45%?
         bearing, range = Utils.toPolar(next_wp.x,next_wp.y)
@@ -653,7 +654,7 @@ class algalbloom_tracker_node(object):
         rospy.loginfo(("follow control : {} ({} degrees)".format(u_follow,follow_angle)))
 
         heading = math.atan2(u[1],u[0])
-        rospy.loginfo(("heading : {} (degrees)".format(math.degrees(heading))))
+        rospy.logdebug(("heading : {} (degrees)".format(math.degrees(heading))))
 
         return heading
 
