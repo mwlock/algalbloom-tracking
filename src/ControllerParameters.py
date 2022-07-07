@@ -13,3 +13,9 @@ class ControllerParameters:
 
         # Front following gain
         self.following_gain = 0
+
+        # Vehicle speed
+        self.speed = 0
+
+        # Waypoint tolerance (m)
+        self.waypoint_tolerance = 0

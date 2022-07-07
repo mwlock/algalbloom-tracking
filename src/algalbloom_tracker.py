@@ -278,7 +278,6 @@ class algalbloom_tracker_node(object):
 
         # Init controller state
         self.controller_state.n_waypoints = 0
-        self.controller_state.speed = self.args['initial_speed']
         self.controller_state.direction = self.args['initial_heading']  # (radians)
 
         # Init controller params
@@ -286,6 +285,8 @@ class algalbloom_tracker_node(object):
         self.controller_params.distance = self.args['horizontal_distance']
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
+        self.controller_params.speed = self.args['speed']
+        self.controller_params.waypoint_tolerance = self.args['waypoint_tolerance']
 
         # Setup estimator
         self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
@@ -304,16 +305,18 @@ class algalbloom_tracker_node(object):
 
         # Arguments
         self.args = {}
-        self.args['initial_speed'] = initial_speed = rospy.get_param('~initial_speed')      # inital speed 
-        self.args['initial_heading']  = rospy.get_param('~initial_heading')                 # initial heading (degrees)
-        self.args['delta_ref']  = rospy.get_param('~delta_ref')                             # target chlorophyll value
+        self.args['initial_speed'] = initial_speed = rospy.get_param('~initial_speed')              # inital speed 
+        self.args['initial_heading']  = rospy.get_param('~initial_heading')                         # initial heading (degrees)
+        self.args['delta_ref']  = rospy.get_param('~delta_ref')                                     # target chlorophyll value
         self.args['following_gain']  = rospy.get_param('~following_gain')
         self.args['seeking_gain']  = rospy.get_param('~seeking_gain')
-        self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                     # zig zag angle (degrees)
-        self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')         # horizontal_distance (m)
+        self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                             # zig zag angle (degrees)
+        self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')                 # horizontal_distance (m)
         self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
-        self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')     # number of samples before estimation
+        self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')            # number of samples before estimation
         self.args['scale_factor'] = float(1)/float(rospy.get_param('~data_downs_scale_factor')) 
+        self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed (m/s)    
+        self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')      
         self.offset_gps = rospy.get_param('~offset_gps')
 
         # Move these elsewhere (TODO)
@@ -432,7 +435,7 @@ class algalbloom_tracker_node(object):
             return (None, None)
 
     # Publish waypoint to SAM
-    def publishWaypoint(self,lat,lon,depth):
+    def publish_waypoint(self,lat,lon,depth):
 
         # Make sure lat/lon offset is taken care of
         lat += self.gps_lat_offset 
@@ -449,14 +452,13 @@ class algalbloom_tracker_node(object):
 
         msg = GotoWaypoint()
         msg.travel_depth = -1
-        msg.goal_tolerance = 2
+        msg.goal_tolerance = self.controller_params.waypoint_tolerance
         msg.lat = lat
         msg.lon = lon
         msg.z_control_mode = z_control_modes[0]
         #msg.travel_rpm = 1000
         msg.speed_control_mode = speed_control_mode[1]
-        # msg.travel_speed = 5.0
-        msg.travel_speed = 1
+        msg.travel_speed = self.controller_params.speed
         msg.pose.header.frame_id = 'utm'
         msg.pose.header.stamp = rospy.Time(0)
         msg.pose.pose.position.x = x
@@ -540,7 +542,7 @@ class algalbloom_tracker_node(object):
 
         # calculate displacement for waypoint
         lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
-        self.publishWaypoint(lat=lat,lon=lon,depth=0)
+        self.publish_waypoint(lat=lat,lon=lon,depth=0)
 
     def get_track_position(self,origin,use_relative_position=True):
         """ Return distance along the track """

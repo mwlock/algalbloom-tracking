@@ -7,13 +7,14 @@
 	<param name="data_file_base_path" value="$(arg data_file_base_path)"/>
 	<param name="show_matplot_lib" value="True"/>
 	<!-- control parameters -->
-	<param name="initial_speed" value="1.0"/>
 	<param name="following_gain" value="25.0"/>
 	<param name="seeking_gain" value="1.0"/>
 	<param name="zig_zag_angle" value="45.0"/>
 	<param name="horizontal_distance" value="10.0"/>
 	<param name="threshold" value="0.1"/>
-	<param name="estimation_trigger_val" value="50"/>	
+	<param name="estimation_trigger_val" value="50"/>
+	<param name="speed" value="5"/>	
+	<param name="waypoint_tolerance" value="2"/>	
 	<!-- plan parameters -->
 	<param name="initial_heading" value="0.0"/>
 	<param name="delta_ref" value="7.45"/>
