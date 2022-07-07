@@ -222,8 +222,11 @@ class algalbloom_tracker_node(object):
         sample = fb.sample
         self.last_sample = fb.header.stamp
 
-        # add to list of measurements
-        self.samples = np.append(self.samples,sample)    
+        # Apply moving average filter (size 3)
+        self.samples = np.append(self.samples,sample) 
+        self.samples[-1] = np.avererage(self.samples[-3:])
+
+        # Record sample position   
         self.samples_positions = np.append(self.samples_positions, position,axis=0)
 
         # Check if front has been reached
@@ -619,8 +622,8 @@ class algalbloom_tracker_node(object):
 
         # Estimate the gradient
         if self.has_crossed_the_front():
-            grad = np.array(self.est.est_grad(self.samples_positions[-self.n_meas:], \
-                                                                self.samples[-self.n_meas:])).squeeze()
+            grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
+                                                                self.samples[-(self.n_meas+1):])).squeeze()
         else:
             grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
 
