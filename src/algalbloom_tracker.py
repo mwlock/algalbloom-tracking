@@ -305,7 +305,6 @@ class algalbloom_tracker_node(object):
 
         # Arguments
         self.args = {}
-        self.args['initial_speed'] = initial_speed = rospy.get_param('~initial_speed')              # inital speed 
         self.args['initial_heading']  = rospy.get_param('~initial_heading')                         # initial heading (degrees)
         self.args['delta_ref']  = rospy.get_param('~delta_ref')                                     # target chlorophyll value
         self.args['following_gain']  = rospy.get_param('~following_gain')
