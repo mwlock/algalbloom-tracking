@@ -246,7 +246,7 @@ class algalbloom_tracker_node(object):
 
 
         # logging stuff :)
-        rospy.loginfo('Received sample : {} at {},{} with estimated gradient {} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))
+        rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))
 
     # Return true if pose remains uninitialized
     def pose_is_none(self):
