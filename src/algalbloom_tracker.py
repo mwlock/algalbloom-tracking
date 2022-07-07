@@ -462,7 +462,7 @@ class algalbloom_tracker_node(object):
         self.waypoint_pub.publish(msg)
 
         rospy.loginfo('Published waypoint : {},{}'.format(lat,lon))
-        rospy.loginfo(msg)
+        # rospy.loginfo(msg)
 
         # Store waypoint
         self.controller_state.waypoint_position.lat = msg.lat
@@ -542,11 +542,14 @@ class algalbloom_tracker_node(object):
         """ Return distance along the track """
 
         if use_relative_position:
+
+            rospy.loginto("Track position dx : {}".format(self.controller_state.relative_postion.x))
+            rospy.loginto("Track position dy : {}".format(self.controller_state.relative_postion.y))
+            
             bearing, range = Utils.toPolar(x=self.controller_state.relative_postion.x,y=self.controller_state.relative_postion.y)
             rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
             bearing =- self.controller_state.direction
             rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
-
 
             x = range * math.cos(bearing)
             return x
