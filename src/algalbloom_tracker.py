@@ -40,6 +40,17 @@ from ControllerParameters import ControllerParameters
 from ControllerState import ControllerState
 from utils import Utils
 
+# Constants
+CHLOROPHYLL_TOPIC = '/sam/algae_tracking/chlorophyll_sampling'
+GRADIENT_TOPIC = '/sam/algae_tracking/gradient'
+
+LATLONG_TOPIC = '/sam/dr/lat_lon'
+GOT_TO_WAYPOINT_RESULT = '/sam/ctrl/goto_waypoint/result'
+LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
+
+WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
+WAPOINT_ENABLE_TOPIC=LIVE_WP_BASE_TOPIC+'enable'
+
 class GPEstimator:
     def __init__(self, kernel, s, range_m, params=None, earth_radius=6369345):
         if not (kernel == 'RQ' or kernel == 'MAT'):
@@ -369,13 +380,12 @@ class algalbloom_tracker_node(object):
         self.front_crossed = False
 
         # Subscriber topics
-        self.chlorophyll_topic = '/sam/algae_tracking/chlorophyll_sampling'
-        self.latlong_topic = '/sam/dr/lat_lon'
-        self.got_to_waypoint_result = '/sam/ctrl/goto_waypoint/result'
-
-        self.live_wp_base_topic = 'sam/smarc_bt/live_wp/'
-        self.wapoint_topic=self.live_wp_base_topic+'wp'
-        self.wapoint_enable_topic=self.live_wp_base_topic+'enable'
+        self.chlorophyll_topic= CHLOROPHYLL_TOPIC 
+        self.gradient_topic= GRADIENT_TOPIC 
+        self.latlong_topic= LATLONG_TOPIC 
+        self.got_to_waypoint_result= GOT_TO_WAYPOINT_RESULT 
+        self.wapoint_topic= WAPOINT_TOPIC 
+        self.wapoint_enable_topic = WAPOINT_ENABLE_TOPIC 
 
         # Waypoint enable publisher
         self.enable_waypoint_pub = rospy.Publisher(self.wapoint_enable_topic, Bool, queue_size=1)
@@ -642,6 +652,9 @@ class algalbloom_tracker_node(object):
         # if self.args['show_matplot_lib'] and self.inited:
             # ax.arrow(self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat,0.005*grad_norm[0],0.005*grad_norm[1],head_width=0.05,head_length=0.1, fc='b', ec='b')
             # plt.pause(0.0001)
+
+        # Publish calculated gradient
+        
 
         return self.gradients[-1]
 

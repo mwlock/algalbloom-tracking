@@ -12,7 +12,7 @@
 	<param name="zig_zag_angle" value="45.0"/>
 	<param name="horizontal_distance" value="10.0"/>
 	<param name="threshold" value="0.1"/>
-	<param name="estimation_trigger_val" value="50"/>
+	<param name="estimation_trigger_val" value="150"/>
 	<param name="speed" value="5"/>	
 	<param name="waypoint_tolerance" value="2"/>	
 	<!-- plan parameters -->
@@ -21,7 +21,7 @@
 	<!-- data parameters -->
 	<param name="data_downs_scale_factor" value="100.0"/>
 	<!-- GPS Offset Parameters -->
-	<param name="offset_gps" value="False"/>
+	<param name="offset_gps" value="True"/>
 	<param name="starting_lat" value="61.42112"/>
 	<param name="starting_lon" value="20.79051"/>
     </node>

@@ -14,6 +14,10 @@ from std_msgs.msg import Float64, Header, Bool, Empty, Header
 from geographic_msgs.msg import GeoPoint
 from smarc_msgs.msg import ChlorophyllSample
 
+# Graphing
+import matplotlib.pyplot as plt
+fig,ax = plt.subplots()
+
 # Return GeoGrid
 class GeoGrid:
     def __init__(self, data, lon, lat, time, t_idx, include_time=False):
@@ -37,7 +41,7 @@ class GeoGrid:
                 return True
 
 # Read matlab data
-def read_mat_data(timestamp,include_time=False,scale_factor=1):
+def read_mat_data(timestamp,include_time=False,scale_factor=1,lat_shift=0,lon_shift = 0):
 
     # Get datapath
     base_path = rospy.get_param('~data_file_base_path')
@@ -58,6 +62,10 @@ def read_mat_data(timestamp,include_time=False,scale_factor=1):
     lat = ((lat - lat[0])*scale_factor)+lat[0]
     lon = ((lon - lon[0])*scale_factor)+lon[0]
 
+    # Shift the data
+    lat = lat + lat_shift
+    lon = lon + lon_shift
+
     # Logging
     rospy.loginfo('Scale factor : {}'.format(scale_factor))
     rospy.loginfo("Dimensions of lat {} - {}".format(lat[0],lat[-1]))
@@ -76,14 +84,20 @@ class chlorophyll_sampler_node(object):
             self.gps_lat_offset = fb.latitude - self.lat_centre
             self.gps_lon_offset = fb.longitude - self.lon_centre
 
-        self.lat = fb.latitude - self.gps_lat_offset 
-        self.lon = fb.longitude - self.gps_lon_offset
+        # Offset position
+        # self.lat = fb.latitude - self.gps_lat_offset 
+        # self.lon = fb.longitude - self.gps_lon_offset
 
         # Check offset correct set
         if not self.init:
+
+            # Determine offsets
             lat_error = (fb.latitude - self.gps_lat_offset) - self.lat_centre
             long_Error = (fb.longitude - self.gps_lon_offset) - self.lon_centre
             rospy.loginfo("Offset error : {}, {}".format(lat_error,long_Error))
+
+            # Offset the data
+            self.grid = read_mat_data(self.timestamp, include_time=self.include_time,scale_factor=self.scale_factor,lat_shift=self.gps_lat_offset,lon_shift=self.gps_lon_offset)
 
         self.init = True
 
@@ -114,10 +128,8 @@ class chlorophyll_sampler_node(object):
             self.lat_centre =  rospy.get_param('~starting_lat')
             self.lon_centre =  rospy.get_param('~starting_lon')
 
-        # Subscribe to SAM posiiton
+        # Publishers and subscribers
         self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
-        
-        # Create the publisher
         self.chlorophyll_publisher = rospy.Publisher('/sam/algae_tracking/chlorophyll_sampling', ChlorophyllSample, queue_size=1)
 
     def publish_sample(self):
