@@ -140,7 +140,7 @@ class chlorophyll_sampler_node(object):
 
         # Do nothing if current lat/long not set
         if None in current_position:
-            rospy.logwarn("Cannot take sample, current lat/lon is None")
+            rospy.logwarn("Cannot take sample, current lat/lon is None : [{},{}]".find(self.lat,self.lon))
             return
 
         # Get sample
