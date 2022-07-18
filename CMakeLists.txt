@@ -164,6 +164,8 @@ catkin_install_python(PROGRAMS
   src/positions.py
   src/utils.py
   src/ControllerState.py
+  src/controller_parameters.py
+  scripts/plot_simulated_chlorophyll.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

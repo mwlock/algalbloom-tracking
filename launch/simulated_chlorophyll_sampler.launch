@@ -6,9 +6,21 @@
 	<param name="data_file_base_path" value="$(arg data_file_base_path)"/>
 	<param name="data_downs_scale_factor" value="100.0"/>
 	<param name="offset_gps" value="True"/>
-	<param name="starting_lat" value="61.42112"/>
-	<param name="starting_lon" value="20.79051"/>
+	<!-- OLD -->
+	<!-- <param name="starting_lat" value="61.42112"/>
+	<param name="starting_lon" value="20.79051"/> -->
+
+	<!-- Shorter line -->
+	<!-- <param name="starting_lat" value="61.4218"/>
+	<param name="starting_lon" value="20.7923"/> -->
+
+	<!-- Longer line -->
+	<param name="starting_lat" value="61.4215"/>
+	<param name="starting_lon" value="20.7924"/>
+
+
 	<param name="sampling_time" value="1.0"/>
+	<param name="delta_ref" value="7.25"/>
     </node>
 
 </launch>

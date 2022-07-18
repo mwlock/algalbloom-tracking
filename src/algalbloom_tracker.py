@@ -25,18 +25,15 @@ from smarc_msgs.msg import GotoWaypoint, LatLonOdometry
 from std_msgs.msg import Float64, Header, Bool, Empty
 from smarc_msgs.srv import LatLonToUTM
 from smarc_msgs.srv import UTMToLatLon
-from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample
+from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample,AlgaeFrontGradient
 import geographic_msgs.msg
 
 # Sampler import
 from simulated_chlorophyll_sampler import GeoGrid
 from simulated_chlorophyll_sampler import read_mat_data
 
-import matplotlib.pyplot as plt
-fig,ax = plt.subplots()
-
 from positions import RelativePosition
-from ControllerParameters import ControllerParameters
+from controller_parameters import ControllerParameters
 from ControllerState import ControllerState
 from utils import Utils
 
@@ -152,13 +149,8 @@ class algalbloom_tracker_node(object):
     def lat_lon__cb(self,fb):
         """ update virtual position of the robot using dead reckoning"""
 
-        # Offset position
-        if not self.inited and self.offset_gps:
-            self.gps_lat_offset = fb.latitude - self.lat_centre
-            self.gps_lon_offset = fb.longitude - self.lon_centre
-
-        fb.latitude = fb.latitude - self.gps_lat_offset 
-        fb.longitude = fb.longitude - self.gps_lon_offset
+        fb.latitude = fb.latitude 
+        fb.longitude = fb.longitude
 
         # Get position
         self.controller_state.absolute_position.lat = fb.latitude
@@ -277,15 +269,6 @@ class algalbloom_tracker_node(object):
         self.controller_state.absolute_position.lat = 0
         self.controller_state.absolute_position.lon = 0
 
-        # GPS offset
-        self.gps_lat_offset = 0
-        self.gps_lon_offset = 0
-        self.lat_centre =  0
-        self.lon_centre =  0
-        if self.offset_gps:
-            self.lat_centre =  rospy.get_param('~starting_lat')
-            self.lon_centre =  rospy.get_param('~starting_lon')
-
         # Init controller state
         self.controller_state.n_waypoints = 0
         self.controller_state.direction = self.args['initial_heading']  # (radians)
@@ -321,7 +304,6 @@ class algalbloom_tracker_node(object):
         self.args['seeking_gain']  = rospy.get_param('~seeking_gain')
         self.args['zig_zag_angle']  = rospy.get_param('~zig_zag_angle')                             # zig zag angle (degrees)
         self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')                 # horizontal_distance (m)
-        self.args['show_matplot_lib'] = rospy.get_param('~show_matplot_lib') 
         self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')            # number of samples before estimation
         self.args['scale_factor'] = float(1)/float(rospy.get_param('~data_downs_scale_factor')) 
         self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed (m/s)    
@@ -344,24 +326,7 @@ class algalbloom_tracker_node(object):
         self.estimation_trigger_val = (self.n_meas-1) * self.meas_per
         self.grad_filter_len = 2 # 2
         self.meas_filter_len = 3 # 3
-        self.alpha = 0.95 # Gradient update factor, 0.95
-
-
-        # plot first to avoid errors
-        if self.args['show_matplot_lib']:
-            self.timestamp = 1618610399
-            self.include_time = False
-            self.grid = read_mat_data(self.timestamp, include_time=self.include_time,scale_factor=self.args['scale_factor'])
-            ax.set_aspect('equal')
-            xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
-            p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
-            cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-            cp = fig.colorbar(p, cax=cax)
-            cp.set_label("Chl a density [mm/mm3]")
-            ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.args['delta_ref']])
-            plt.pause(0.0001)
-            time.sleep(2) # allow some time for the plot to start
-            
+        self.alpha = 0.95 # Gradient update factor, 0.95            
 
         # Chlorophyl samples
         self.samples = np.array([])
@@ -386,6 +351,9 @@ class algalbloom_tracker_node(object):
         self.got_to_waypoint_result= GOT_TO_WAYPOINT_RESULT 
         self.wapoint_topic= WAPOINT_TOPIC 
         self.wapoint_enable_topic = WAPOINT_ENABLE_TOPIC 
+
+        # Gradient publisher
+        self.gradient_pub = rospy.Publisher(self.gradient_topic, AlgaeFrontGradient ,queue_size=1)
 
         # Waypoint enable publisher
         self.enable_waypoint_pub = rospy.Publisher(self.wapoint_enable_topic, Bool, queue_size=1)
@@ -445,13 +413,9 @@ class algalbloom_tracker_node(object):
     # Publish waypoint to SAM
     def publish_waypoint(self,lat,lon,depth):
 
-        # Make sure lat/lon offset is taken care of
-        lat += self.gps_lat_offset 
-        lon += self.gps_lon_offset 
-
-        self.lat_lon_point = geographic_msgs.msg.GeoPoint()
-        self.lat_lon_point.latitude = lat
-        self.lat_lon_point.longitude = lon        
+        # self.lat_lon_point = geographic_msgs.msg.GeoPoint()
+        # self.lat_lon_point.latitude = lat
+        # self.lat_lon_point.longitude = lon        
 
         x, y = self.latlon_to_utm(lat=lat,lon=lon,z=depth)
 
@@ -464,8 +428,8 @@ class algalbloom_tracker_node(object):
         msg.lat = lat
         msg.lon = lon
         msg.z_control_mode = z_control_modes[0]
-        #msg.travel_rpm = 1000
-        msg.speed_control_mode = speed_control_mode[1]
+        msg.travel_rpm = 700
+        msg.speed_control_mode = speed_control_mode[0]
         msg.travel_speed = self.controller_params.speed
         msg.pose.header.frame_id = 'utm'
         msg.pose.header.stamp = rospy.Time(0)
@@ -483,11 +447,22 @@ class algalbloom_tracker_node(object):
         self.controller_state.waypoint_position.lon = msg.lon
 
         # Plot calculated waypoint
-        if self.args['show_matplot_lib']:
-            rospy.loginfo('plotting waypoint')
-            lat -= self.gps_lat_offset 
-            lon -= self.gps_lon_offset 
-            ax.plot(lon,lat,'m.', linewidth=1)
+        # if self.args['show_matplot_lib']:
+            # rospy.loginfo('plotting waypoint')
+            # lat -= self.gps_lat_offset 
+            # lon -= self.gps_lon_offset 
+            # ax.plot(lon,lat,'m.', linewidth=1)
+
+    def publish_gradient(self,lat,lon,x,y):
+
+        msg = AlgaeFrontGradient()
+        msg.header.stamp = rospy.Time.now()
+        msg.lat = lat
+        msg.lon = lon
+        msg.x = x
+        msg.y = y
+
+        self.gradient_pub.publish(msg)        
 
     def dispatch_waypoint(self):
         pass       
@@ -504,15 +479,15 @@ class algalbloom_tracker_node(object):
             self.dispatch_waypoint()
 
             # Plot position
-            if self.args['show_matplot_lib'] and self.inited:
-                if not 0 in [self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat]:                    
-                    ax.plot(self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat,'r.', linewidth=1)
-                    plt.pause(0.0001)
+            # if self.args['show_matplot_lib'] and self.inited:
+            #     if not 0 in [self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat]:                    
+            #         ax.plot(self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat,'r.', linewidth=1)
+            #         plt.pause(0.0001)
 
             rate.sleep()
 
     def update_ref(self):
-        """ Update referece """
+        """ Update referece and publish new waypoint"""
 
         rospy.loginfo("Determining new waypoint")
 
@@ -528,7 +503,7 @@ class algalbloom_tracker_node(object):
             rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
 
         distance = self.controller_params.distance if front_crossed else 0
-        along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance
+        along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance*2
 
         # Determine the next waypoint
         next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
@@ -587,9 +562,9 @@ class algalbloom_tracker_node(object):
         rospy.loginfo("New virtual position : {},{}".format(lat,lon))
 
         # Plot new virtual position
-        if self.args['show_matplot_lib']:
-            rospy.loginfo('plotting waypoint')
-            ax.plot(lon,lat,'w.', linewidth=1)
+        # if self.args['show_matplot_lib']:
+        #     rospy.loginfo('plotting waypoint')
+        #     ax.plot(lon,lat,'w.', linewidth=1)
     
     def reset_virtual_position(self):
         """ Reset virtual position """
@@ -654,9 +629,9 @@ class algalbloom_tracker_node(object):
             # plt.pause(0.0001)
 
         # Publish calculated gradient
-        
+        self.publish_gradient(lon =self.samples_positions[-1][0], lat=self.samples_positions[-1][1],x=grad_norm[0],y=grad_norm[1])
 
-        return self.gradients[-1]
+        return grad_norm
 
     def perform_control(self,grad):
         """ Calculate the control action 
