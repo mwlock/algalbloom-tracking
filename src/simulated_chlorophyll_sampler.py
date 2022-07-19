@@ -23,6 +23,21 @@ GRADIENT_TOPIC = '/sam/algae_tracking/gradient'
 LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
 WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
 
+import math
+
+def rotate(origin, point, angle):
+    """
+    Rotate a point counterclockwise by a given angle around a given origin.
+
+    The angle should be given in radians.
+    """
+    ox, oy = origin  
+    px, py = point
+
+    qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+    qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+    return qx, qy
+
 # Return GeoGrid
 class GeoGrid:
     def __init__(self, data, lon, lat, time, t_idx, include_time=False):
@@ -91,10 +106,16 @@ class chlorophyll_sampler_node(object):
         self.grad_y = fb.y
 
     def waypoint__cb(self,fb):
+
+        # Rotate waypoint waypoint
+        origin = (self.origin_lon,self.origin_lat)
+        point = (fb.lon, fb.lat)
+        angle = math.radians(self.data_rotate_angle)
+        lon, lat = rotate(origin, point, -angle)
         
         # Extract new waypoint
-        self.wp_lat = fb.lat 
-        self.wp_lon = fb.lon 
+        self.wp_lat = lat 
+        self.wp_lon = lon 
 
         rospy.loginfo("New waypoint received! : {} , {} ".format(self.wp_lat,self.wp_lon))
 
@@ -122,6 +143,17 @@ class chlorophyll_sampler_node(object):
             # Offset the data
             self.grid = read_mat_data(self.timestamp, include_time=self.include_time,scale_factor=self.scale_factor,lat_shift=self.gps_lat_offset,lon_shift=self.gps_lon_offset)
 
+            # Set origin of rotation
+            self.origin_lat = fb.latitude
+            self.origin_lon = fb.longitude
+
+        # Rotate data       
+        origin = (self.origin_lon,self.origin_lat)
+        point = (self.lon, self.lat)
+        angle = math.radians(self.data_rotate_angle)
+
+        self.lon, self.lat = rotate(origin, point, -angle)s
+
         self.init = True
 
     def __init__(self):
@@ -148,6 +180,10 @@ class chlorophyll_sampler_node(object):
         self.grad_lon = None
         self.grad_x = None
         self.grad_y = None
+
+        self.origin_lat = None
+        self.origin_lon = None
+        self.data_rotate_angle = rospy.get_param('~data_rotate_angle')
 
         # WGS84 grid (lookup-table for sampling)
         self.include_time = False
