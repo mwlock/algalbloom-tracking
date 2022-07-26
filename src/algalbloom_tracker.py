@@ -415,7 +415,7 @@ class algalbloom_tracker_node(object):
             rospy.logerr_throttle_identical(5, "LatLon to UTM service failed! namespace:{}".format(self.LATLONTOUTM_SERVICE))
             return (None, None)
 
-    def pubish_vp(self):
+    def publish_vp(self):
         """ Publish current vp """
 
         msg = GeoPointStamped()
@@ -576,6 +576,7 @@ class algalbloom_tracker_node(object):
         self.controller_state.virtual_position.lat = lat
         self.controller_state.virtual_position.lon = lon
         rospy.loginfo("New virtual position : {},{}".format(lat,lon))
+        self.publish_vp()
 
         # Plot new virtual position
         # if self.args['show_matplot_lib']:
