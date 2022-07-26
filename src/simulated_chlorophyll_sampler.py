@@ -11,7 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 import rospy
 from std_msgs.msg import Float64, Header, Bool, Empty, Header
-from geographic_msgs.msg import GeoPoint
+from geographic_msgs.msg import GeoPoint, GeoPointStamped
 from smarc_msgs.msg import ChlorophyllSample,GotoWaypoint,AlgaeFrontGradient
 
 # Graphing
@@ -20,6 +20,7 @@ fig,ax = plt.subplots()
 
 # Constants
 GRADIENT_TOPIC = '/sam/algae_tracking/gradient'
+VITUAL_POSITION_TOPIC = '/sam/algae_tracking/vp'
 LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
 WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
 
@@ -97,6 +98,12 @@ def read_mat_data(timestamp,include_time=False,scale_factor=1,lat_shift=0,lon_sh
 
 class chlorophyll_sampler_node(object):
 
+    def vp__cb(self,fb):
+
+        # Extract gradient
+        self.vp_lat = fb.position.latitude
+        self.vp_lon = fb.position.longitutde
+
     def gradient__cb(self,fb):
 
         # Extract gradient
@@ -152,7 +159,7 @@ class chlorophyll_sampler_node(object):
         point = (self.lon, self.lat)
         angle = math.radians(self.data_rotate_angle)
 
-        self.lon, self.lat = rotate(origin, point, -angle)s
+        self.lon, self.lat = rotate(origin, point, -angle)
 
         self.init = True
 
@@ -170,12 +177,19 @@ class chlorophyll_sampler_node(object):
         self.init = False
         self.counter = 0
 
+        # Real position
         self.lat = None
         self.lon = None
 
+        # Waypoint
         self.wp_lat = None
         self.wp_lon = None
 
+        # Virtual position
+        self.vp_lat = None
+        self.vp_lon = None
+
+        # Gradient
         self.grad_lat = None
         self.grad_lon = None
         self.grad_x = None
@@ -204,6 +218,7 @@ class chlorophyll_sampler_node(object):
         self.dr_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
         self.waypoint_sub = rospy.Subscriber(WAPOINT_TOPIC, GotoWaypoint, self.waypoint__cb, queue_size=2)
         self.gradient_sub = rospy.Subscriber(GRADIENT_TOPIC, AlgaeFrontGradient, self.gradient__cb, queue_size=2)
+        self.vp_sub = rospy.Subscriber(VITUAL_POSITION_TOPIC, GeoPointStamped, self.vp__cb, queue_size=2)
         self.chlorophyll_publisher = rospy.Publisher('/sam/algae_tracking/chlorophyll_sampling', ChlorophyllSample, queue_size=1)
 
         # Plotting
@@ -251,6 +266,11 @@ class chlorophyll_sampler_node(object):
         current_waypoint = [self.wp_lat,self.wp_lon]
         return None not in current_waypoint
 
+    def is_valid_vp(self):
+        """ Determine if current vp is valid"""
+        current_vp = [self.vp_lon,self.vp_lat]
+        return None not in current_vp
+
     def is_valid_gradient(self):
         """ Determine if current gradient is valid"""
         current_grad = [self.grad_lat,self.grad_lon,self.grad_x,self.grad_y]
@@ -266,6 +286,7 @@ class chlorophyll_sampler_node(object):
 
             # Plot grid
             if not self.grid_plotted and self.init:
+
                 ax.set_aspect('equal')
                 xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
                 p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
@@ -274,6 +295,7 @@ class chlorophyll_sampler_node(object):
                 cp.set_label("Chl a density [mm/mm3]")
                 ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.delta_ref])
                 plt.pause(0.0001)
+
                 self.grid_plotted = True
 
             # Plot gradient
@@ -289,6 +311,11 @@ class chlorophyll_sampler_node(object):
             # Plot waypoint
             if self.grid_plotted and self.is_valid_waypoint():
                 ax.plot(self.wp_lon,self.wp_lat,'w.', linewidth=1)
+                plt.pause(0.0001)
+
+            # Plot vp
+            if self.grid_plotted and self.is_valid_vp():
+                ax.plot(self.vp_lon,self.vp_lat,'y.', linewidth=1)
                 plt.pause(0.0001)
 
             self.counter +=1
