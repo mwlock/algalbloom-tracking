@@ -100,9 +100,8 @@ class chlorophyll_sampler_node(object):
 
     def vp__cb(self,fb):
 
-        # Extract gradient
         self.vp_lat = fb.position.latitude
-        self.vp_lon = fb.position.longitutde
+        self.vp_lon = fb.position.longitude
 
     def gradient__cb(self,fb):
 
@@ -315,7 +314,7 @@ class chlorophyll_sampler_node(object):
 
             # Plot vp
             if self.grid_plotted and self.is_valid_vp():
-                ax.plot(self.vp_lon,self.vp_lat,'y.', linewidth=1)
+                ax.plot(self.vp_lon,self.vp_lat,'b.', linewidth=3)
                 plt.pause(0.0001)
 
             self.counter +=1

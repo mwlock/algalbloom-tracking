@@ -421,7 +421,7 @@ class algalbloom_tracker_node(object):
         msg = GeoPointStamped()
         msg.header.stamp = rospy.Time.now()
         msg.position.latitude = self.controller_state.virtual_position.lat
-        msg.position.longitude = self.controller_state.virtual_position.lat
+        msg.position.longitude = self.controller_state.virtual_position.lon
         msg.position.altitude = -1
 
         self.vp_pub.publish(msg)   
