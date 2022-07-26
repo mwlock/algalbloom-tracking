@@ -26,7 +26,7 @@ from std_msgs.msg import Float64, Header, Bool, Empty
 from smarc_msgs.srv import LatLonToUTM
 from smarc_msgs.srv import UTMToLatLon
 from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample,AlgaeFrontGradient
-import geographic_msgs.msg
+from geographic_msgs.msg import GeoPointStamped
 
 # Sampler import
 from simulated_chlorophyll_sampler import GeoGrid
@@ -40,6 +40,7 @@ from utils import Utils
 # Constants
 CHLOROPHYLL_TOPIC = '/sam/algae_tracking/chlorophyll_sampling'
 GRADIENT_TOPIC = '/sam/algae_tracking/gradient'
+VITUAL_POSITION_TOPIC = '/sam/algae_tracking/vp'
 
 LATLONG_TOPIC = '/sam/dr/lat_lon'
 GOT_TO_WAYPOINT_RESULT = '/sam/ctrl/goto_waypoint/result'
@@ -347,6 +348,7 @@ class algalbloom_tracker_node(object):
         # Subscriber topics
         self.chlorophyll_topic= CHLOROPHYLL_TOPIC 
         self.gradient_topic= GRADIENT_TOPIC 
+        self.vitual_position_topic = VITUAL_POSITION_TOPIC
         self.latlong_topic= LATLONG_TOPIC 
         self.got_to_waypoint_result= GOT_TO_WAYPOINT_RESULT 
         self.wapoint_topic= WAPOINT_TOPIC 
@@ -354,6 +356,9 @@ class algalbloom_tracker_node(object):
 
         # Gradient publisher
         self.gradient_pub = rospy.Publisher(self.gradient_topic, AlgaeFrontGradient ,queue_size=1)
+
+        # Virtual position publisher
+        self.vp_pub = rospy.Publisher(self.vitual_position_topic,GeoPointStamped,queue_size=1)
 
         # Waypoint enable publisher
         self.enable_waypoint_pub = rospy.Publisher(self.wapoint_enable_topic, Bool, queue_size=1)
@@ -409,6 +414,17 @@ class algalbloom_tracker_node(object):
         except rospy.service.ServiceException:
             rospy.logerr_throttle_identical(5, "LatLon to UTM service failed! namespace:{}".format(self.LATLONTOUTM_SERVICE))
             return (None, None)
+
+    def pubish_vp(self):
+        """ Publish current vp """
+
+        msg = GeoPointStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.position.latitude = self.controller_state.virtual_position.lat
+        msg.position.longitude = self.controller_state.virtual_position.lat
+        msg.position.altitude = -1
+
+        self.vp_pub.publish(msg)   
 
     # Publish waypoint to SAM
     def publish_waypoint(self,lat,lon,depth):
