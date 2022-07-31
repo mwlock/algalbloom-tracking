@@ -164,6 +164,7 @@ catkin_install_python(PROGRAMS
   src/controller/controller_parameters.py src/controller/controller_state.py src/controller/positions.py
   src/publishers/gradient.py src/publishers/positions.py src/publishers/waypoints.py
   src/services/latlon_to_utm.py
+  src/estimators/gp.py
   scripts/plot_simulated_chlorophyll.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

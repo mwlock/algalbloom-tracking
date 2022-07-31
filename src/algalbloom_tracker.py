@@ -32,18 +32,21 @@ from geographic_msgs.msg import GeoPointStamped
 from simulated_chlorophyll_sampler import GeoGrid
 from simulated_chlorophyll_sampler import read_mat_data
 
+# Controller
 from controller.positions import RelativePosition
 from controller.controller_parameters import ControllerParameters
 from controller.controller_state import ControllerState
-from utils import Utils
 
-# Services
-from services.latlon_to_utm import latlon_to_utm
+# Utils
+from utils import Utils
 
 # Publisher methods
 from publishers.waypoints import publish_waypoint
 from publishers.gradient import publish_gradient
 from publishers.positions import publish_vp
+
+# Gradient estimation
+from estimators.gp import GPEstimator
 
 # Constants
 CHLOROPHYLL_TOPIC = '/sam/algae_tracking/chlorophyll_sampling'
@@ -57,92 +60,6 @@ LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
 WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
 WAPOINT_ENABLE_TOPIC=LIVE_WP_BASE_TOPIC+'enable'
 
-class GPEstimator:
-    def __init__(self, kernel, s, range_m, params=None, earth_radius=6369345):
-        if not (kernel == 'RQ' or kernel == 'MAT'):
-            raise ValueError("Invalid kernel. Choices are RQ or MAT.")
-
-        if params is not None:
-            if kernel == 'RQ':
-                self.__kernel = gp.kernels.ConstantKernel(params[0])*gp.kernels.RationalQuadratic(length_scale=params[2], alpha=params[3])
-
-            elif kernel == 'MAT':
-                self.__kernel = gp.kernels.ConstantKernel(params[0])*gp.kernels.Matern(length_scale=params[1:])
-
-        else:
-            if kernel == 'RQ':
-                self.__kernel = gp.kernels.ConstantKernel(91.2025)*gp.kernels.RationalQuadratic(length_scale=0.00503, alpha=0.0717)
-            elif kernel == 'MAT':
-                self.__kernel = gp.kernels.ConstantKernel(44.29588721)*gp.kernels.Matern(length_scale=[0.54654887, 0.26656638])
-
-        self.__kernel_name = kernel
-
-        self.s = s
-        self.__model = gp.GaussianProcessRegressor(kernel=self.__kernel, optimizer=None, alpha=self.s**2)
-
-        # Estimation range where to predict values
-        self.range_deg = range_m / (np.radians(1.0) * earth_radius)
-
-
-    """
-    Gaussian Process Regression - Gradient analytical estimation
-
-    Parameters
-    ----------
-    X:self.trajectory coordinates array
-    y: self.measurements on X coordinates
-    dist_metric: distance metric used to calculate distances
-    """
-    def est_grad(self, X, y, dist_metric='euclidean'):
-        self.__model.fit(X[:-1], y[:-1])
-        x = np.atleast_2d(X[-1])
-
-        params = self.__kernel.get_params()
-
-        if self.__kernel_name == 'RQ':
-            sigma = params["k1__constant_value"]
-            length_scale = params["k2__length_scale"]
-            alpha = params["k2__alpha"]
-
-            dists = cdist(x, X[:-1], metric=dist_metric)
-            x_dist = nonabs_1D_dist(x[:,0], X[:-1,0])
-            y_dist = nonabs_1D_dist(x[:,1], X[:-1,1])
-
-            common_term = 1 + dists ** 2 / (2 * alpha * length_scale ** 2)
-            common_term = common_term ** (-alpha-1)
-            common_term = -sigma /  (length_scale ** 2) * common_term
-
-            dx = x_dist * common_term
-            dy = y_dist * common_term
-
-        elif self.__kernel_name == 'MAT':
-            sigma = params["k1__constant_value"]
-            length_scale = params["k2__length_scale"]
-
-            dists = cdist(x/length_scale, X[:-1]/length_scale, metric=dist_metric)
-
-            dists = dists * np.sqrt(3)
-
-            x_dist = nonabs_1D_dist(x[:,0], X[:-1,0]) / (length_scale[0]**2)
-            y_dist = nonabs_1D_dist(x[:,1], X[:-1,1]) / (length_scale[1]**2)
-
-            common_term = -3 * sigma * np.exp(-dists)
-
-            dx = x_dist * common_term
-            dy = y_dist * common_term
-
-        return np.matmul(dx,self.__model.alpha_) , np.matmul(dy,self.__model.alpha_) 
-
-
-def nonabs_1D_dist(x, X):
-    res = np.zeros((x.shape[0], X.shape[0]))
-
-    for i in range(res.shape[0]):
-        for j in range(res.shape[1]):
-            res[i, j] = x[i] - X[j]
-
-    return res
-
 class algalbloom_tracker_node(object):
 
     # Algal bloom tracker node
@@ -152,14 +69,13 @@ class algalbloom_tracker_node(object):
         self.args = {}
         self.args['initial_heading']  = rospy.get_param('~initial_heading')                         # initial heading [degrees]
         self.args['delta_ref']  = rospy.get_param('~delta_ref')                                     # target chlorophyll value
-        self.args['following_gain']  = rospy.get_param('~following_gain')
-        self.args['seeking_gain']  = rospy.get_param('~seeking_gain')
-        self.args['horizontal_distance']  = rospy.get_param('~horizontal_distance')                 # horizontal_distance [m]
+        self.args['following_gain']  = rospy.get_param('~following_gain')                           # following gain
+        self.args['seeking_gain']  = rospy.get_param('~seeking_gain')                               # seeking gain
+        self.args['wp_distance']  = rospy.get_param('~wp_distance')                                 # wp_distance [m]
         self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')            # number of samples before estimation
-        self.args['scale_factor'] = float(1)/float(rospy.get_param('~data_downs_scale_factor')) 
         self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed [m/s]  
-        self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')  
-        self.args['range'] = rospy.get_param('~range')                                              # Estimation circle radius [m]
+        self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')                    # waypoint tolerance [m]
+        self.args['range'] = rospy.get_param('~range')                                              # estimation circle radius [m]
 
         # Move these elsewhere (TODO)
         # Gaussian Process Regression
@@ -242,10 +158,10 @@ class algalbloom_tracker_node(object):
         """ Initialise controller and such """
 
         # Init controller state
-        self.controller_state.direction = math.radians(self.args['initial_heading'])  # (radians)
+        self.controller_state.direction = math.radians(self.args['initial_heading'])  # [radians]
 
         # Init controller params
-        self.controller_params.distance = self.args['horizontal_distance']
+        self.controller_params.distance = self.args['wp_distance']
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
         self.controller_params.speed = self.args['speed']
@@ -483,7 +399,6 @@ class algalbloom_tracker_node(object):
 
         # Carry on moving in straight line if the front has not been crossed
         if not front_crossed:
-            # Do not change direction
             return
 
         # Estimate direction of the front
