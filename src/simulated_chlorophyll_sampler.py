@@ -314,7 +314,7 @@ class chlorophyll_sampler_node(object):
 
             # Plot vp
             if self.grid_plotted and self.is_valid_vp():
-                ax.plot(self.vp_lon,self.vp_lat,'b.', linewidth=3)
+                ax.plot(self.vp_lon,self.vp_lat,'.', markersize=10,color="orange")
                 plt.pause(0.0001)
 
             self.counter +=1

@@ -16,14 +16,10 @@
 	<param name="speed" value="5"/>	
 	<param name="waypoint_tolerance" value="2"/>	
 	<!-- plan parameters -->
-	<param name="initial_heading" value="-45.0"/>
+	<param name="initial_heading" value="0.0"/>
 	<param name="delta_ref" value="7.45"/>
 	<!-- data parameters -->
 	<param name="data_downs_scale_factor" value="100.0"/>
-	<!-- GPS Offset Parameters -->
-	<param name="offset_gps" value="True"/>
-	<param name="starting_lat" value="61.42112"/>
-	<param name="starting_lon" value="20.79051"/>
     </node>
 
 </launch>

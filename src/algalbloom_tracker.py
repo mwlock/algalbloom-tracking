@@ -309,7 +309,6 @@ class algalbloom_tracker_node(object):
         self.args['scale_factor'] = float(1)/float(rospy.get_param('~data_downs_scale_factor')) 
         self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed (m/s)    
         self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')      
-        self.offset_gps = rospy.get_param('~offset_gps')
 
         # Move these elsewhere (TODO)
         # Gaussian Process Regression
@@ -427,11 +426,7 @@ class algalbloom_tracker_node(object):
         self.vp_pub.publish(msg)   
 
     # Publish waypoint to SAM
-    def publish_waypoint(self,lat,lon,depth):
-
-        # self.lat_lon_point = geographic_msgs.msg.GeoPoint()
-        # self.lat_lon_point.latitude = lat
-        # self.lat_lon_point.longitude = lon        
+    def publish_waypoint(self,lat,lon,depth):    
 
         x, y = self.latlon_to_utm(lat=lat,lon=lon,z=depth)
 
@@ -456,18 +451,10 @@ class algalbloom_tracker_node(object):
         self.waypoint_pub.publish(msg)
 
         rospy.loginfo('Published waypoint : {},{}'.format(lat,lon))
-        # rospy.loginfo(msg)
 
         # Store waypoint
         self.controller_state.waypoint_position.lat = msg.lat
         self.controller_state.waypoint_position.lon = msg.lon
-
-        # Plot calculated waypoint
-        # if self.args['show_matplot_lib']:
-            # rospy.loginfo('plotting waypoint')
-            # lat -= self.gps_lat_offset 
-            # lon -= self.gps_lon_offset 
-            # ax.plot(lon,lat,'m.', linewidth=1)
 
     def publish_gradient(self,lat,lon,x,y):
 
@@ -493,12 +480,6 @@ class algalbloom_tracker_node(object):
         while not rospy.is_shutdown():
 
             self.dispatch_waypoint()
-
-            # Plot position
-            # if self.args['show_matplot_lib'] and self.inited:
-            #     if not 0 in [self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat]:                    
-            #         ax.plot(self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat,'r.', linewidth=1)
-            #         plt.pause(0.0001)
 
             rate.sleep()
 
@@ -639,13 +620,8 @@ class algalbloom_tracker_node(object):
         if len(self.gradients)>1:
             self.gradients[-1] = self.gradients[-2] * self.alpha + self.gradients[-1] * (1-self.alpha)
 
-        # Plot gradient as arrow?
-        grad_norm = self.gradients[-1]
-        # if self.args['show_matplot_lib'] and self.inited:
-            # ax.arrow(self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat,0.005*grad_norm[0],0.005*grad_norm[1],head_width=0.05,head_length=0.1, fc='b', ec='b')
-            # plt.pause(0.0001)
-
         # Publish calculated gradient
+        grad_norm = self.gradients[-1]
         self.publish_gradient(lon =self.samples_positions[-1][0], lat=self.samples_positions[-1][1],x=grad_norm[0],y=grad_norm[1])
 
         return grad_norm
