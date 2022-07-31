@@ -1,9 +1,6 @@
 class ControllerParameters:
 
     def __init__(self):
-        
-        # Angle with track bearing (rad)
-        self.angle = 0
 
         # Horizontal distance travelled by the vehicle.
         self.distance = 0

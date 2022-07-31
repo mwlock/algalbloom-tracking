@@ -160,11 +160,10 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  src/algalbloom_tracker.py src/simulated_chlorophyll_sampler.py
-  src/positions.py
-  src/utils.py
-  src/ControllerState.py
-  src/controller_parameters.py
+  src/algalbloom_tracker.py src/simulated_chlorophyll_sampler.py src/utils.py
+  src/controller/controller_parameters.py src/controller/controller_state.py src/controller/positions.py
+  src/publishers/gradient.py src/publishers/positions.py src/publishers/waypoints.py
+  src/services/latlon_to_utm.py
   scripts/plot_simulated_chlorophyll.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
