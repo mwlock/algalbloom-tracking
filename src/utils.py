@@ -1,5 +1,6 @@
 import math
 import utm
+import numpy as np
 
 from positions import AbsolutePosition
 
@@ -33,3 +34,13 @@ class Utils():
         dy = virtual_position_utm_coords[1] - current_position_utm_coords[1]
 
         return dx,dy
+    
+    @staticmethod
+    def nonabs_1D_dist(x, X):
+        res = np.zeros((x.shape[0], X.shape[0]))
+
+        for i in range(res.shape[0]):
+            for j in range(res.shape[1]):
+                res[i, j] = x[i] - X[j]
+
+        return res

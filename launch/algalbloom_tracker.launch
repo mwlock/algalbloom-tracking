@@ -10,7 +10,7 @@
 	<param name="following_gain" value="25.0"/>
 	<param name="seeking_gain" value="1.0"/>
 	<param name="zig_zag_angle" value="35.0"/>
-	<param name="horizontal_distance" value="10"/>
+	<param name="wp_distance" value="10"/>
 	<param name="threshold" value="0.1"/>
 	<param name="estimation_trigger_val" value="45"/>
 	<param name="speed" value="5"/>	
