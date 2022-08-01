@@ -25,7 +25,7 @@ def publish_waypoint(latlontoutm_service,controller_params,waypoint_pub,enable_w
     msg.lat = lat
     msg.lon = lon
     msg.z_control_mode = z_control_modes[0]
-    msg.travel_rpm = 700
+    msg.travel_rpm = 1000
     msg.speed_control_mode = speed_control_mode[0]
     msg.travel_speed = controller_params.speed
     msg.pose.header.frame_id = 'utm'

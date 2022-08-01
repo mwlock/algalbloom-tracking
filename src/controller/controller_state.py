@@ -1,5 +1,5 @@
 
-from positions import AbsolutePosition,RelativePosition,VirtualPosition
+from controller.positions import AbsolutePosition,RelativePosition,VirtualPosition
 
 class ControllerState():
     """ Controler state"""

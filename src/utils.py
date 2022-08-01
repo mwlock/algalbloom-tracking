@@ -2,7 +2,7 @@ import math
 import utm
 import numpy as np
 
-from positions import AbsolutePosition
+from controller.positions import AbsolutePosition
 
 class Utils():
 

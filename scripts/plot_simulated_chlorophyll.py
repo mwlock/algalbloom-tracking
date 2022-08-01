@@ -63,7 +63,7 @@ def read_mat_data(timestamp,include_time=False,scale_factor=1,lat_shift=0,lon_sh
 
     return GeoGrid(chl, lon, lat, time, t_idx, include_time=include_time)
 
-scale_factor =  float(1)/100
+scale_factor =  float(1)/1
 delta_ref = 7.25
 
 # WGS84 grid (lookup-table for sampling)
