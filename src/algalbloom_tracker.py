@@ -3,13 +3,11 @@
 # vim:fenc=utf-8
 
 # Python imports
+from array import array
 import time
 import math
 import numpy as np
-import scipy.io
-from scipy.interpolate import RegularGridInterpolator
-import sklearn.gaussian_process as gp
-from scipy.spatial.distance import cdist
+import signal
 
 # Ros imports
 import rospy
@@ -17,232 +15,111 @@ import os
 
 # Smarc imports
 from geographic_msgs.msg import GeoPoint
-from geometry_msgs.msg import PointStamped, PoseArray, PoseStamped, Point
-from smarc_msgs.msg import GotoWaypoint, LatLonOdometry
-from std_msgs.msg import Float64, Header, Bool, Empty
-from smarc_msgs.srv import LatLonToUTM
-from smarc_msgs.srv import UTMToLatLon
-from smarc_msgs.msg import GotoWaypointActionResult
-import geographic_msgs.msg
+from smarc_msgs.msg import GotoWaypoint
+from std_msgs.msg import Bool
+from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample,AlgaeFrontGradient
+from geographic_msgs.msg import GeoPointStamped
 
-import matplotlib.pyplot as plt
-fig,ax = plt.subplots()
+# Controller
+from controller.positions import RelativePosition
+from controller.controller_parameters import ControllerParameters
+from controller.controller_state import ControllerState
 
-class GPEstimator:
-    def __init__(self, kernel, s, range_m, params=None, earth_radius=6369345):
-        if not (kernel == 'RQ' or kernel == 'MAT'):
-            raise ValueError("Invalid kernel. Choices are RQ or MAT.")
+# Utils
+from utils import Utils
 
-        if params is not None:
-            if kernel == 'RQ':
-                self.__kernel = gp.kernels.ConstantKernel(params[0])*gp.kernels.RationalQuadratic(length_scale=params[2], alpha=params[3])
+# Publisher methods
+from publishers.waypoints import publish_waypoint
+from publishers.gradient import publish_gradient
+from publishers.positions import publish_vp
 
-            elif kernel == 'MAT':
-                self.__kernel = gp.kernels.ConstantKernel(params[0])*gp.kernels.Matern(length_scale=params[1:])
+# Gradient estimation
+from estimators.gp import GPEstimator
 
-        else:
-            if kernel == 'RQ':
-                self.__kernel = gp.kernels.ConstantKernel(91.2025)*gp.kernels.RationalQuadratic(length_scale=0.00503, alpha=0.0717)
-            elif kernel == 'MAT':
-                self.__kernel = gp.kernels.ConstantKernel(44.29588721)*gp.kernels.Matern(length_scale=[0.54654887, 0.26656638])
-
-        self.__kernel_name = kernel
-
-        self.s = s
-        self.__model = gp.GaussianProcessRegressor(kernel=self.__kernel, optimizer=None, alpha=self.s**2)
-
-        # Estimation range where to predict values
-        self.range_deg = range_m / (np.radians(1.0) * earth_radius)
-
-
-    """
-    Gaussian Process Regression - Gradient analytical estimation
-
-    Parameters
-    ----------
-    X:self.trajectory coordinates array
-    y: self.measurements on X coordinates
-    dist_metric: distance metric used to calculate distances
-    """
-    def est_grad(self, X, y, dist_metric='euclidean'):
-        self.__model.fit(X[:-1], y[:-1])
-        x = np.atleast_2d(X[-1])
-
-        params = self.__kernel.get_params()
-
-        if self.__kernel_name == 'RQ':
-            sigma = params["k1__constant_value"]
-            length_scale = params["k2__length_scale"]
-            alpha = params["k2__alpha"]
-
-            dists = cdist(x, X[:-1], metric=dist_metric)
-            x_dist = nonabs_1D_dist(x[:,0], X[:-1,0])
-            y_dist = nonabs_1D_dist(x[:,1], X[:-1,1])
-
-            common_term = 1 + dists ** 2 / (2 * alpha * length_scale ** 2)
-            common_term = common_term ** (-alpha-1)
-            common_term = -sigma /  (length_scale ** 2) * common_term
-
-            dx = x_dist * common_term
-            dy = y_dist * common_term
-
-        elif self.__kernel_name == 'MAT':
-            sigma = params["k1__constant_value"]
-            length_scale = params["k2__length_scale"]
-
-            dists = cdist(x/length_scale, X[:-1]/length_scale, metric=dist_metric)
-
-            dists = dists * np.sqrt(3)
-
-            x_dist = nonabs_1D_dist(x[:,0], X[:-1,0]) / (length_scale[0]**2)
-            y_dist = nonabs_1D_dist(x[:,1], X[:-1,1]) / (length_scale[1]**2)
-
-            common_term = -3 * sigma * np.exp(-dists)
-
-            dx = x_dist * common_term
-            dy = y_dist * common_term
-
-        return np.matmul(dx,self.__model.alpha_) , np.matmul(dy,self.__model.alpha_) 
-
-
-def nonabs_1D_dist(x, X):
-    res = np.zeros((x.shape[0], X.shape[0]))
-
-    for i in range(res.shape[0]):
-        for j in range(res.shape[1]):
-            res[i, j] = x[i] - X[j]
-
-    return res
-
-
-def grad_moving_average_2D(grad, idx, n, weights):
-    val_x = grad[idx - n+1:idx + 1, 0]
-    val_y = grad[idx - n+1:idx + 1, 1]
-
-    x_ma = np.average(val_x, weights=weights)
-    y_ma = np.average(val_y, weights=weights)
-
-    return np.array([x_ma, y_ma])
-
-
-# Vehicle dynamics
-class Dynamics:
-    def __init__(self, alpha_seek, alpha_follow, delta_ref, speed):
-        self.alpha_seek = alpha_seek
-        self.alpha_follow = alpha_follow
-        self.delta_ref = delta_ref
-        self.speed = speed
-
-
-    def __call__(self, delta, grad, include_time=False):
-        self.u_x = self.alpha_seek*(self.delta_ref - delta)*grad[0] \
-                            - self.alpha_follow*grad[1]
-        self.u_y = self.alpha_seek*(self.delta_ref - delta)*grad[1] \
-                            + self.alpha_follow*grad[0]
-
-        u = np.array([self.u_x, self.u_y])
-        if include_time is False:
-            return u * self.speed / np.linalg.norm(u)
-        else:
-            # Normalization still to be tested in TV conditions
-            u_norm = u * self.speed / np.linalg.norm(u)
-            return np.array([u_norm[0], u_norm[1], 1])
-
-# Return GeoGrid
-class GeoGrid:
-    def __init__(self, data, lon, lat, time, t_idx, include_time=False):
-        self.data = data
-        self.lon = lon
-        self.lat = lat
-        self.time = time
-        self.t_idx = t_idx
-
-        if include_time is False:
-            self.field = RegularGridInterpolator((self.lon, self.lat), self.data[:,:,self.t_idx])
-        else:
-            self.field = RegularGridInterpolator((self.lon, self.lat, self.time), self.data)
-
-    def is_within_limits(self, x, include_time=False):
-        if include_time is False:
-            if (self.lon[0] <= x[0] <= self.lon[-1]) and (self.lat[0] <= x[1] <= self.lat[-1]):
-                return True
-        else:
-            if (self.lon[0] <= x[0] <= self.lon[-1]) and (self.lat[0] <= x[1] <= self.lat[-1]) and (self.time[0] <= x[2] <= self.time[-1]):
-                return True
-
-# Read matlab data
-def read_mat_data(timestamp,include_time=False):
-
-    # Get datapath
-    base_path = rospy.get_param('~data_file_base_path')
-
-    # Read mat files
-    chl = scipy.io.loadmat(base_path+'/chl.mat')['chl']
-    lat = scipy.io.loadmat(base_path+'/lat.mat')['lat']
-    lon = scipy.io.loadmat(base_path+'/lon.mat')['lon']
-    time = scipy.io.loadmat(base_path+'/time.mat')['time']
-
-    # Reshape
-    lat = np.reshape(lat,[-1,])
-    lon = np.reshape(lon,[-1,])
-    chl = np.swapaxes(chl,0,2)
-    time = np.reshape(time,[-1,])
-
-    t_idx = np.argmin(np.abs(timestamp - time))
-
-    return GeoGrid(chl, lon, lat, time, t_idx, include_time=include_time)
+# Constants
+CHLOROPHYLL_TOPIC = '/sam/algae_tracking/chlorophyll_sampling'
+GRADIENT_TOPIC = '/sam/algae_tracking/gradient'
+VITUAL_POSITION_TOPIC = '/sam/algae_tracking/vp'
+LATLONG_TOPIC = '/sam/dr/lat_lon'
+GOT_TO_WAYPOINT_RESULT = '/sam/ctrl/goto_waypoint/result'
+LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
+WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
+WAPOINT_ENABLE_TOPIC=LIVE_WP_BASE_TOPIC+'enable'
 
 class algalbloom_tracker_node(object):
 
-    # Subscriber callbacks
-    def depth__cb(self,fb):
-        self.depth = fb.data
-
-    def x__cb(self,fb):
-        self.x = fb.data
-
-    def y__cb(self,fb):
-        self.y = fb.data
-
-    def lat_lon__cb(self,fb):
-        self.lat = fb.latitude
-        self.lon = fb.longitude
-
-    def waypoint_reached__cb(self,fb):
-        if fb.status.text == "WP Reached":
-            self.following_waypoint = False
-            rospy.loginfo("Waypoint reached")
-
-    # Return true if pose remains uninitialized
-    def pose_is_none(self):
-        return None in [self.depth,self.lat,self.lon,self.x,self.y]
-
-    # Init
+    # Algal bloom tracker node
     def __init__(self):
 
-        # Declare relevant pose variables 
-        self.depth = None
-        self.lat = None
-        self.lon = None
-        self.x = None
-        self.y = None
+        # Arguments
+        self.args = {}
+        self.args['initial_heading']  = rospy.get_param('~initial_heading')                         # initial heading [degrees]
+        self.args['delta_ref']  = rospy.get_param('~delta_ref')                                     # target chlorophyll value
+        self.args['following_gain']  = rospy.get_param('~following_gain')                           # following gain
+        self.args['seeking_gain']  = rospy.get_param('~seeking_gain')                               # seeking gain
+        self.args['wp_distance']  = rospy.get_param('~wp_distance')                                 # wp_distance [m]
+        self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')            # number of samples before estimation
+        self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed [m/s]  
+        self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')                    # waypoint tolerance [m]
+        self.args['range'] = rospy.get_param('~range')                                              # estimation circle radius [m]
+        self.args['measurement_period'] = rospy.get_param('~measurement_period')                    # measurement period [s]        
 
-        # Subscribe to relevant topics
-        self.depth_sub = rospy.Subscriber('/sam/dr/depth', Float64, self.depth__cb, queue_size=2)
-        self.depth_sub = rospy.Subscriber('/sam/dr/x', Float64, self.x__cb, queue_size=2)
-        self.depth_sub = rospy.Subscriber('/sam/dr/y', Float64, self.y__cb, queue_size=2)
-        self.depth_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
-        self.goal_reached_sub = rospy.Subscriber('/sam/ctrl/goto_waypoint/result', GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
+        # Move these elsewhere (TODO)
+        # Gaussian Process Regression
+        self.kernel = "MAT"
+        self.std = 1e-3
+        # TODO : Should this be 200, this is apparently the estimation circle radius?
+        self.range = self.args['range'] 
+        self.params = [44.29588721, 0.54654887, 0.26656638]
+        self.time_step = 1
+        self.meas_per = int(10 / self.time_step) # measurement period
+
+        # Move these elsewhere (TODO)
+        # Algorithm settings
+        self.n_meas = 125 # 125
+        self.grad_filter_len = 2 # 2
+        self.meas_filter_len = 3 # 3
+        self.alpha = 0.95 # Gradient update factor, 0.95            
+
+        # Chlorophyl samples
+        self.samples = np.array([])
+        self.samples_positions =  np.empty((0,2), dtype=float)
+        self.last_sample = -1
+
+        # Gradient
+        self.gradients = np.empty((0,2), dtype=float)
+
+        # Controller 
+        self.controller_state = ControllerState()
+        self.controller_params = ControllerParameters()
+
+        self.inited = False
+        self.waypoints_cleared = True
+        self.front_crossed = False
+
+        # Subscriber topics
+        self.chlorophyll_topic= CHLOROPHYLL_TOPIC 
+        self.gradient_topic= GRADIENT_TOPIC 
+        self.vitual_position_topic = VITUAL_POSITION_TOPIC
+        self.latlong_topic= LATLONG_TOPIC 
+        self.got_to_waypoint_result= GOT_TO_WAYPOINT_RESULT 
+        self.wapoint_topic= WAPOINT_TOPIC 
+        self.wapoint_enable_topic = WAPOINT_ENABLE_TOPIC 
+
+        # Gradient publisher
+        self.gradient_pub = rospy.Publisher(self.gradient_topic, AlgaeFrontGradient ,queue_size=1)
+
+        # Virtual position publisher
+        self.vp_pub = rospy.Publisher(self.vitual_position_topic,GeoPointStamped,queue_size=1)
 
         # Waypoint enable publisher
-        self.enable_waypoint_pub = rospy.Publisher('/sam/algae_farm/enable', Bool, queue_size=1)
+        self.enable_waypoint_pub = rospy.Publisher(self.wapoint_enable_topic, Bool, queue_size=1)
         self.enable_waypoint_following = Bool()
         self.enable_waypoint_following.data = True
 
         # Waypoint following publisher
-        self.waypoint_topic = '/sam/algae_farm/wp'
         self.waypoint_topic_type = GotoWaypoint
-        self.waypoint_pub = rospy.Publisher(self.waypoint_topic, self.waypoint_topic_type,queue_size=5)
+        self.waypoint_pub = rospy.Publisher(self.wapoint_topic, self.waypoint_topic_type,queue_size=5)
 
         # Latlong to UTM service
         # wait for the latlon_to_utm service to exist
@@ -256,298 +133,303 @@ class algalbloom_tracker_node(object):
                 service_exists = True
                 break
             except:
-                pass       
-
-        # Setup dynamics
-        self.alpha_seek = 30
-        self.alpha_follow = 1
-        self.delta_ref = 7.45
-        self.speed = 0.00004497 # 5m/s
-        self.dynamics = Dynamics(self.alpha_seek, self.alpha_follow, self.delta_ref, self.speed)
-
-        # WGS84 grid
-        self.args = 1618610399
-        self.include_time = False
-        self.timestamp = 1618610399
-        self.grid = read_mat_data(self.timestamp, include_time=self.include_time)
-
-        # Gaussian Process Regression
-        self.kernel = "MAT"
-        self.std = 1e-3
-        self.range = 200
-        self.params = [44.29588721, 0.54654887, 0.26656638]
-        self.time_step = 1.5
-        self.meas_per = int(10 / self.time_step) # measurement period
-        self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
-
-        # Algorithm settings
-        self.n_iter = int(3e5) # 3e5
-        self.n_meas = 125 # 125
-        self.estimation_trigger_val = (self.n_meas-1) * self.meas_per
-        self.grad_filter_len = 2 # 2
-        self.meas_filter_len = 3 # 3
-        self.alpha = 0.95 # Gradient update factor, 0.95
-
-        # Meas filter
-        self.weights_meas = None
+                pass    
+        rospy.loginfo("Aquired services")
 
         # Init
         self.init_flag = False
-        self.following_waypoint = False
 
-    # Convert latlon to UTM
-    def latlon_to_utm(self,lat,lon,z,in_degrees=False):
+        rospy.loginfo("Node init complete.")
 
-        try:
-            rospy.wait_for_service(self.LATLONTOUTM_SERVICE, timeout=1)
-        except:
-            rospy.logwarn(str(self.LATLONTOUTM_SERVICE)+" service not found!")
-            return (None, None)
-        try:
-            latlontoutm_service = rospy.ServiceProxy(self.LATLONTOUTM_SERVICE,
-                                                     LatLonToUTM)
-            gp = GeoPoint()
-            if in_degrees:
-                gp.latitude = lat
-                gp.longitude = lon
-            else:
-                gp.latitude = lat
-                gp.longitude = lon
-            gp.altitude = z
-            utm_res = latlontoutm_service(gp)
+    def init_tracker(self):
+        """ Initialise controller and such """
 
-            return (utm_res.utm_point.x, utm_res.utm_point.y)
-        except rospy.service.ServiceException:
-            rospy.logerr_throttle_identical(5, "LatLon to UTM service failed! namespace:{}".format(self.LATLONTOUTM_SERVICE))
-            return (None, None)
+        # Init controller state
+        self.controller_state.direction = math.radians(self.args['initial_heading'])  # [radians]
 
-    # Publish waypoint to SAM
-    def publishWaypoint(self,lat,lon,depth):
+        # Init controller params
+        self.controller_params.distance = self.args['wp_distance']
+        self.controller_params.following_gain = self.args['following_gain']
+        self.controller_params.seeking_gain = self.args['seeking_gain']
+        self.controller_params.speed = self.args['speed']
+        self.controller_params.waypoint_tolerance = self.args['waypoint_tolerance']
 
-        self.lat_lon_point = geographic_msgs.msg.GeoPoint()
-        self.lat_lon_point.latitude = lat
-        self.lat_lon_point.longitude = lon
+        # Setup estimator
+        self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
 
-        x, y = self.latlon_to_utm(lat=lat,lon=lon,z=depth)
+        # Subscribe to topics
+        self.depth_sub = rospy.Subscriber(self.latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)        
+        self.chlorophyll_sub = rospy.Subscriber(self.chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)      
+        self.goal_reached_sub = rospy.Subscriber(self.got_to_waypoint_result, GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
 
-        z_control_modes = [GotoWaypoint.Z_CONTROL_DEPTH]
-        speed_control_mode = [GotoWaypoint.SPEED_CONTROL_RPM,GotoWaypoint.SPEED_CONTROL_SPEED]
+        rospy.loginfo("Subscribed to {}".format(self.latlong_topic))
+        rospy.loginfo("Subscribed to {}".format(self.chlorophyll_topic))
+        rospy.loginfo("Subscribed to {}".format(self.got_to_waypoint_result))
 
-        msg = GotoWaypoint()
-        msg.travel_depth = -1
-        msg.goal_tolerance = 2
-        msg.lat = lat
-        msg.lon = lon
-        msg.z_control_mode = z_control_modes[0]
-        #msg.travel_rpm = 1000
-        msg.speed_control_mode = speed_control_mode[1]
-        msg.travel_speed = 5.0
-        msg.pose.header.frame_id = 'utm'
-        msg.pose.header.stamp = rospy.Time(0)
-        msg.pose.pose.position.x = x
-        msg.pose.pose.position.y = y
+    def lat_lon__cb(self,fb):
+        """        
+        Latlon topic subscriber callback:
+        Update virtual position of the robot using dead reckoning
+        """
 
-        self.enable_waypoint_pub.publish(self.enable_waypoint_following)
-        self.waypoint_pub.publish(msg)
-        rospy.loginfo('Published waypoint')
+        fb.latitude = fb.latitude 
+        fb.longitude = fb.longitude
 
-    def tick_control(self,x0, step, dynamics, grid, estimator, init_heading, meas_per, include_time=False, filter=False):
-        """ Perform the control law """
+        # Get position
+        self.controller_state.absolute_position.lat = fb.latitude
+        self.controller_state.absolute_position.lon = fb.longitude
+        # rospy.loginfo(self.controller_state)
 
-        if self.pose_is_none():
-            rospy.loginfo('State is none')
-            return
+        # Set virtual postion (initalisation of vp)
+        if not self.inited:           
+            self.controller_state.virtual_position.lat = fb.latitude
+            self.controller_state.virtual_position.lon = fb.longitude
 
-        # Plot current position
-        if self.init_flag:
-            ax.plot(self.lon,self.lat,'g.', linewidth=1)
-            plt.pause(0.0001)
+        # Calculate displacement (in m)
+        dx,dy = Utils.displacement(virtual_position=self.controller_state.absolute_position,current_position=self.controller_state.virtual_position)
+        self.controller_state.relative_postion.x = dx
+        self.controller_state.relative_postion.y = dy
 
-        if self.following_waypoint:
-            rospy.loginfo('Following waypoint')
-            return
+        # Update ref if mission not started
+        if not self.inited:            
+            self.update_ref()  
+            self.inited = True            
 
-        rospy.loginfo("Ticking control law")
 
-        current_position = [self.lon,self.lat]
-
-        # ==============================================================================================================
-        # Initialisation
-        # ==============================================================================================================
-        if not self.init_flag:
-
-            rospy.loginfo("Initialising")
-
-            # Prepare gradient filter
-            if filter is not False:
-                if filter == 'MA':
-                    self.weights = None
-
-                elif filter == 'WMA':
-                    self.weights = np.zeros(self.grad_filter_len)
-                    for i in range(self.grad_filter_len):
-                        self.weights[i] = (i+1) / self.grad_filter_len
-
-                else:
-                    raise ValueError("Unrecognized filter.")
-
-            if include_time:
-                x0 = [x0[0], x0[1], grid.time[grid.t_idx]]
-                self.init_heading = np.array([init_heading[0] - x0[0], init_heading[1] - x0[1], 1])
-
-            else:
-                self.init_heading = np.array([init_heading[0] - x0[0], init_heading[1] - x0[1]])
-
-            self.traj = np.zeros((self.n_iter, len(x0)))
-            self.traj[0] = x0
-
-            self.true_traj = np.zeros((self.n_iter, len(x0)))
-            self.true_traj[0] = current_position
-
-            self.x_meas = np.zeros((int(np.ceil(self.n_iter / meas_per)), len(x0)))
-            self.measurements = np.zeros(int(np.ceil(self.n_iter / meas_per)))
-            self.grad = np.zeros((int(np.ceil(self.n_iter / meas_per)), 2))
-
-            if filter is not False:
-                self.grad_filter = np.zeros((int(np.ceil(self.n_iter / meas_per)), 2))
-
-            # Init state control law
-            self.control = self.init_heading[:2] * dynamics.speed / np.linalg.norm([self.init_heading[:2]])
-
-            self.meas_index = 0
-            self.init_flag = True
-
-            # Initialisation
-            self.i = 0
-
-            # Graphing
-            # Plot initial trajectory point
-            ax.set_aspect('equal')
-            xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
-            p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
-            cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-            cp = fig.colorbar(p, cax=cax)
-            cp.set_label("Chl a density [mm/mm3]")
-            ax.contour(xx, yy, grid.data[:,:,grid.t_idx], levels=[self.delta_ref])
-            plt.pause(0.0001)
-
-        # ==============================================================================================================
-
-        if self.i % int(self.n_iter/100) == 0:
-            rospy.loginfo("Current iteration: %d" % self.i)
-
-        offset = self.i % meas_per
-
-        # Init state - 5% tolerance from front
-        if (self.i < self.estimation_trigger_val-1 or self.measurements[self.meas_index-1] < 0.95*dynamics.delta_ref) and self.init_flag is True:
-            if offset == 0:
-                self.x_meas[self.meas_index] = current_position
-
-                
-                self.measurements[self.meas_index] = grid.field(self.x_meas[self.meas_index]) + np.random.normal(0, estimator.s)
-                self.grad[self.meas_index] = self.init_heading[:2] / np.linalg.norm(self.init_heading[:2])
-                rospy.loginfo('Taking measurement : {}'.format(self.measurements[self.meas_index]))
-
-                if filter is not False:
-                    self.grad_filter[self.meas_index] = self.grad[self.meas_index]
-
-                self.meas_index = self.meas_index + 1
-
-        # Estimation state
-        else:
-            if self.init_flag is True:
-                print("Following the front...")
-                # init_flag = False
-
-            if offset == 0:
-                self.x_meas[self.meas_index] = current_position
-
-                # Take measurement
-                val = grid.field(self.x_meas[self.meas_index]) + np.random.normal(0, estimator.s)
-                rospy.loginfo('Taking measurement near front: {}'.format(val))
-                if np.isnan(val):
-                    print("Warning: NaN value measured.")
-                    self.measurements[self.meas_index] = self.measurements[self.meas_index-1] # Avoid plots problems
-                    return
-
-                else:
-                    self.measurements[self.meas_index] = val
-
-                self.measurements[self.meas_index] = np.average(self.measurements[self.meas_index + 1 - self.meas_filter_len:self.meas_index+1], weights=self.weights_meas)
-
-                # Estimate gradient
-                if include_time:
-                    self.grad[self.meas_index] = np.array(estimator.est_grad(self.x_meas[self.meas_index-self.n_meas:self.meas_index+1, :2], \
-                                                            self.measurements[self.meas_index-self.n_meas:self.meas_index+1])).squeeze()
-                else:
-                    self.grad[self.meas_index] = np.array(estimator.est_grad(self.x_meas[self.meas_index-self.n_meas:self.meas_index+1], \
-                                                            self.measurements[self.meas_index-self.n_meas:self.meas_index+1])).squeeze()
-
-                self.grad[self.meas_index] = self.grad[self.meas_index] / np.linalg.norm(self.grad[self.meas_index])
-
-                # Filter gradient
-                if filter:
-                    self.grad_filter[self.meas_index] = grad_moving_average_2D(self.grad, self.meas_index, self.grad_filter_len, self.weights)
-                    self.grad_filter[self.meas_index] = self.grad_filter[self.meas_index-1]*self.alpha + self.grad_filter[self.meas_index]*(1-self.alpha)
-                    self.control = dynamics(self.measurements[self.meas_index], self.grad_filter[self.meas_index], include_time=include_time)
-
-                else:
-                    self.grad[self.meas_index] = self.grad[self.meas_index-1, :]*self.alpha + self.grad[self.meas_index, :]*(1-self.alpha)
-                    self.control = dynamics(self.measurements[self.meas_index], self.grad[self.meas_index], include_time=include_time)
-
-                self.meas_index = self.meas_index + 1
-
-        self.traj[self.i+1] =self.traj[self.i] + step*self.control
-        self.true_traj[self.i] = current_position
-
-        # Send next waypoint
-        self.following_waypoint = True
-        self.publishWaypoint(lat=self.traj[self.i+1][1],lon = self.traj[self.i+1][0],depth=0)
-
-        # SAM moving outsife of scope of current mission
-        if not grid.is_within_limits(self.traj[self.i+1, :], include_time=include_time):
-            print("Warning:self.trajectory got out of boundary limits.")
-            return 
-
-        # Plot calculated waypoint
-        if self.i%50 == 0:
-            ax.plot(self.traj[self.i][0],self.traj[self.i][1],'r.', linewidth=1)
-            plt.pause(0.0001)
-
-        # Tick the counter
-        self.i+=1
-
-        # if filter is not False:
-        #     return self.traj[:i], self.measurements[:self.meas_index], self.grad_filter[:self.meas_index]
-        # else:
-        #     return self.traj[:self.i], self.measurements[:self.meas_index], self.grad[:self.meas_index]
-
+    def waypoint_reached__cb(self,fb):
+        """ Waypoint reached
         
+        Logic checking for proximity threshold is handled by the line following action"""
 
+        # Determine if waypoint has been reached
+        if fb.status.text == "WP Reached":
+
+            rospy.loginfo("Waypoint reached signal received")
+
+            # Check distance to waypoint
+            x,y = Utils.displacement(self.controller_state.absolute_position,self.controller_state.waypoint_position)
+            dist = np.linalg.norm(np.array([x,y]))
+            rospy.loginfo("Distance to the waypoint : {}".format(dist))
+            if dist < self.controller_params.waypoint_tolerance:
+                self.waypoints_cleared = True
+
+            # Check that previous waypoints were reached
+            if not self.waypoints_cleared:
+                return 
+
+            # Count waypoints reached
+            self.controller_state.n_waypoints +=1
+
+            self.update_direction()             # Determine control direction
+            self.update_virtual_position()      # Update virtual postion
+            self.update_ref()                   # Send new waypoint
+
+            self.waypoints_cleared = False
+
+
+    def chlorophyl__cb(self,fb):
+        """ 
+        Callback when a sensor reading is received 
+        
+        The sensor reading should be appended to the list of sensor readings, along with the associated
+        lat lon position where the reading was taken.         
+        """
+
+        #TODO : Make the measurement a service so that controller can set measurement period
+
+        # read values (the sensor is responsible for providing the Geo stamp i.e. lat lon co-ordinates)
+        position = np.array([[fb.lon,fb.lat]])
+        sample = fb.sample
+        self.last_sample = fb.header.stamp
+
+        # Apply moving average filter (size 3)
+        self.samples = np.append(self.samples,sample) 
+        self.samples[-1] = np.average(self.samples[-3:])
+
+        # Record sample position   
+        self.samples_positions = np.append(self.samples_positions, position,axis=0)
+
+        # Check if front has been reached
+        if not self.front_crossed:
+            if self.samples[-1] >= 0.95*self.args['delta_ref']:
+                rospy.loginfo("FRONT HAS BEEN REACHED")
+                self.front_crossed = True
+                self.update_virtual_position()
+                self.update_direction()                
+                self.update_ref()
+                self.waypoints_cleared = False
+
+        grad_angle = None
+        if self.inited:
+            grad = self.estimate_gradient()
+            grad_angle = math.degrees(math.atan2(grad[1],grad[0]))
+
+        # logging stuff :)
+        rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))       
     
     def run_node(self):
 
-        #self.trajectory parameters
-        init_heading = np.array([21, 61.492])
-        
-        # Wait for initial potiion to be set
-        while None in [self.lon, self.lat]:
-            pass
-
-        init_coords = [20.87, 61.492]
-
+        # Define note rate
         update_period = self.time_step
         rate = rospy.Rate(1/update_period)
-        # while True:
-        while not rospy.is_shutdown():
-        
-            self.tick_control(init_coords, self.time_step, self.dynamics, self.grid, self.est, init_heading, self.meas_per, include_time=False, filter=False)
 
+        while not rospy.is_shutdown():
             rate.sleep()
+
+    def update_ref(self):
+        """
+        Update referece and publish new waypoint
+        """
+
+        rospy.loginfo("Determining new waypoint")
+
+        # Declare variables needed for wp generation
+        bearing = self.controller_state.direction
+        distance = self.controller_params.distance
+
+        # calculate change from current position
+        dx = distance*math.cos(bearing)
+        dy = distance*math.sin(bearing)
+
+        # calculate displacement for waypoint
+        lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
+
+        # Store and publish waypoint
+        self.controller_state.waypoint_position.lat = lat
+        self.controller_state.waypoint_position.lon = lon
+        publish_waypoint(latlontoutm_service = self.LATLONTOUTM_SERVICE,controller_params=self.controller_params,waypoint_pub=self.waypoint_pub,enable_waypoint_pub=self.enable_waypoint_pub,lat=self.controller_state.waypoint_position.lat,lon=self.controller_state.waypoint_position.lon,depth=0)
+
+    def get_track_position(self,origin,use_relative_position=True):
+        """ Return distance along the track """
+
+        if use_relative_position:
+
+            rospy.loginfo("Track position dx : {}".format(self.controller_state.relative_postion.x))
+            rospy.loginfo("Track position dy : {}".format(self.controller_state.relative_postion.y))
+            
+            bearing, range = Utils.toPolar(x=self.controller_state.relative_postion.x,y=self.controller_state.relative_postion.y)
+            rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
+            bearing = bearing - self.controller_state.direction
+            rospy.loginfo("Controller bearing : {}".format(math.degrees(self.controller_state.direction)))
+            rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
+
+            x = range * math.cos(bearing)
+            return x
+
+        return None
+
+    def update_virtual_position(self):
+        """ Update virtual position """
+
+        origin = RelativePosition()
+
+        # Get distance along the track
+        x = self.get_track_position(origin=origin)
+        rospy.loginfo("Along track position : {}".format(x))
+
+        lat,lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=x*math.cos(self.controller_state.direction),dy=x*math.sin(self.controller_state.direction))
+
+        self.controller_state.virtual_position.lat = lat
+        self.controller_state.virtual_position.lon = lon
+        rospy.loginfo("New virtual position : {},{}".format(lat,lon))
+        publish_vp(lat=self.controller_state.virtual_position.lat,lon=self.controller_state.virtual_position.lon,vp_pub=self.vp_pub)
+
+    def has_crossed_the_front(self):
+        """ Logic for determining if the front has been crossed"""
+        i = len(self.samples)
+        return (i >= self.args['estimation_trigger_val'] and self.front_crossed)
+
+    def update_direction(self):
+        """ Update the direction of the track """
+
+        # Move in inital direction if front not reached
+        if not self.has_crossed_the_front():
+            return
+
+        # Update bearing if front has been reached
+        rospy.loginfo("Updating bearing direction")
+
+        # Estimate direction of the front
+        grad = self.gradients[-1]
+        grad_heading = math.atan2(grad[1],grad[0]) # rad
+        rospy.loginfo("Estimated gradient : {} ({} degrees)".format(grad,math.degrees(grad_heading)))
+
+        # Perform control
+        self.controller_state.direction = self.perform_control(grad=grad)
+
+    def estimate_gradient(self):
+        """ Estimate gradient """
+
+        # TODO (Add windowed filtering on samples to smoothen out?)
+
+        # Estimate the gradient
+        if self.has_crossed_the_front():
+            grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
+                                                                self.samples[-(self.n_meas+1):])).squeeze()
+        else:
+            grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
+
+        self.gradients = np.append(self.gradients,[grad],axis=0)
+
+        # Normalise gradient (unit vector)
+        self.gradients[-1] = self.gradients[-1] / np.linalg.norm(self.gradients[-1])
+
+        # Apply decaying factor to gradient (not sure if this will work)
+        if len(self.gradients)>1:
+            self.gradients[-1] = self.gradients[-2] * self.alpha + self.gradients[-1] * (1-self.alpha)
+
+        # Publish calculated gradient
+        grad_norm = self.gradients[-1]
+        publish_gradient(lon =self.samples_positions[-1][0], lat=self.samples_positions[-1][1],x=grad_norm[0],y=grad_norm[1],gradient_pub=self.gradient_pub)
+
+        return grad_norm
+
+    def perform_control(self,grad):
+        """ 
+        Returns new heading based on the provided gradient vector
+        """
+
+        # Create vector orthogonal to gradient
+        epsi = np.array([-grad[1],grad[0]])
+
+        error = self.args['delta_ref'] - self.samples[-1]
+        u_seek = self.controller_params.seeking_gain * error * grad
+        u_follow = self.controller_params.following_gain * epsi
+        u = u_seek + u_follow
+
+        seek_angle =  math.degrees(math.atan2(u_seek[1],u_seek[0])) 
+        follow_angle = math.degrees(math.atan2(u_follow[1],u_follow[0]))  
+
+        rospy.loginfo(("error : {}".format(error)))
+        rospy.loginfo(("seek control : {} ({} degrees)".format(u_seek,seek_angle)))
+        rospy.loginfo(("follow control : {} ({} degrees)".format(u_follow,follow_angle)))
+
+        heading = math.atan2(u[1],u[0])
+        rospy.loginfo(("heading : {} (degrees)".format(math.degrees(heading))))
+
+        return heading
+
+    def close_node(self,signum, frame):
+        rospy.logwarn("Closing node")
+        rospy.logwarn("Attempting to end waypoint following")
+
+        try :
+            self.enable_waypoint_following.data = False
+            self.enable_waypoint_pub.publish(self.enable_waypoint_following)
+            rospy.logwarn("Waypoint following successfully disabled")
+        except Exception as e:
+            rospy.logwarn("Failed to disabled Waypoint following")
+
+        exit(1)
 
 if __name__ == '__main__':
 
     rospy.init_node("algalbloom_tracker")
     tracking = algalbloom_tracker_node()
+    tracking.init_tracker()
+
+    # Attach exit handler
+    signal.signal(signal.SIGINT, tracking.close_node)
+
+    # run the node
     tracking.run_node()
-        
