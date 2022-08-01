@@ -2,7 +2,7 @@ class ControllerParameters:
 
     def __init__(self):
 
-        # Horizontal distance travelled by the vehicle.
+        # Distance between waypoints.
         self.distance = 0
 
         # Front seeking gain

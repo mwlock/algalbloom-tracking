@@ -4,23 +4,20 @@
 
 	<!-- Tracker node -->
     <node name="algalbloom_tracker" pkg="smarc_algal_bloom_tracking" type="algalbloom_tracker.py" output="screen">
-	<param name="data_file_base_path" value="$(arg data_file_base_path)"/>
-	<param name="show_matplot_lib" value="True"/>
-	<!-- control parameters -->
-	<param name="following_gain" value="25.0"/>
-	<param name="seeking_gain" value="1.0"/>
-	<param name="zig_zag_angle" value="35.0"/>
-	<param name="wp_distance" value="10"/>
-	<param name="threshold" value="0.1"/>
-	<param name="estimation_trigger_val" value="45"/>
-	<param name="speed" value="5"/>	
-	<param name="waypoint_tolerance" value="5"/>	
-	<param name="range" value="200"/>	
-	<!-- plan parameters -->
-	<param name="initial_heading" value="0.0"/>
-	<param name="delta_ref" value="7.25"/>
-	<!-- data parameters -->
-	<param name="data_downs_scale_factor" value="100.0"/>
+		<!-- control parameters -->
+		<param name="following_gain" value="25.0"/>
+		<param name="seeking_gain" value="1.0"/>
+		<param name="zig_zag_angle" value="35.0"/>
+		<param name="wp_distance" value="10"/>
+		<param name="threshold" value="0.1"/>
+		<param name="estimation_trigger_val" value="45"/>
+		<param name="speed" value="5"/>	
+		<param name="waypoint_tolerance" value="5"/>	
+		<param name="range" value="200"/>	
+		<param name="measurement_period" value="6"/>	
+		<!-- plan parameters -->
+		<param name="initial_heading" value="0.0"/>
+		<param name="delta_ref" value="7.25"/>
     </node>
 
 </launch>

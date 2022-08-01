@@ -7,11 +7,6 @@ from array import array
 import time
 import math
 import numpy as np
-import scipy.io
-from scipy.interpolate import RegularGridInterpolator
-import sklearn.gaussian_process as gp
-from scipy.spatial.distance import cdist
-from scipy.spatial import distance
 import signal
 
 # Ros imports
@@ -20,17 +15,10 @@ import os
 
 # Smarc imports
 from geographic_msgs.msg import GeoPoint
-from geometry_msgs.msg import PointStamped, PoseArray, PoseStamped, Point
-from smarc_msgs.msg import GotoWaypoint, LatLonOdometry
-from std_msgs.msg import Float64, Header, Bool, Empty
-from smarc_msgs.srv import LatLonToUTM
-from smarc_msgs.srv import UTMToLatLon
+from smarc_msgs.msg import GotoWaypoint
+from std_msgs.msg import Bool
 from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample,AlgaeFrontGradient
 from geographic_msgs.msg import GeoPointStamped
-
-# Sampler import
-from simulated_chlorophyll_sampler import GeoGrid
-from simulated_chlorophyll_sampler import read_mat_data
 
 # Controller
 from controller.positions import RelativePosition
@@ -52,11 +40,9 @@ from estimators.gp import GPEstimator
 CHLOROPHYLL_TOPIC = '/sam/algae_tracking/chlorophyll_sampling'
 GRADIENT_TOPIC = '/sam/algae_tracking/gradient'
 VITUAL_POSITION_TOPIC = '/sam/algae_tracking/vp'
-
 LATLONG_TOPIC = '/sam/dr/lat_lon'
 GOT_TO_WAYPOINT_RESULT = '/sam/ctrl/goto_waypoint/result'
 LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
-
 WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
 WAPOINT_ENABLE_TOPIC=LIVE_WP_BASE_TOPIC+'enable'
 
@@ -76,6 +62,7 @@ class algalbloom_tracker_node(object):
         self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed [m/s]  
         self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')                    # waypoint tolerance [m]
         self.args['range'] = rospy.get_param('~range')                                              # estimation circle radius [m]
+        self.args['measurement_period'] = rospy.get_param('~measurement_period')                    # measurement period [s]        
 
         # Move these elsewhere (TODO)
         # Gaussian Process Regression
@@ -179,18 +166,11 @@ class algalbloom_tracker_node(object):
         rospy.loginfo("Subscribed to {}".format(self.chlorophyll_topic))
         rospy.loginfo("Subscribed to {}".format(self.got_to_waypoint_result))
 
-    # Subscriber callbacks
-    def depth__cb(self,fb):
-        self.depth = fb.data
-
-    def x__cb(self,fb):
-        self.x = fb.data
-
-    def y__cb(self,fb):
-        self.y = fb.data
-
     def lat_lon__cb(self,fb):
-        """ update virtual position of the robot using dead reckoning"""
+        """        
+        Latlon topic subscriber callback:
+        Update virtual position of the robot using dead reckoning
+        """
 
         fb.latitude = fb.latitude 
         fb.longitude = fb.longitude
@@ -248,10 +228,14 @@ class algalbloom_tracker_node(object):
 
 
     def chlorophyl__cb(self,fb):
-        """ Callback when a sensor reading is received 
+        """ 
+        Callback when a sensor reading is received 
         
         The sensor reading should be appended to the list of sensor readings, along with the associated
-        lat lon position where the reading was taken. """
+        lat lon position where the reading was taken.         
+        """
+
+        #TODO : Make the measurement a service so that controller can set measurement period
 
         # read values (the sensor is responsible for providing the Geo stamp i.e. lat lon co-ordinates)
         position = np.array([[fb.lon,fb.lat]])
@@ -281,65 +265,36 @@ class algalbloom_tracker_node(object):
             grad_angle = math.degrees(math.atan2(grad[1],grad[0]))
 
         # logging stuff :)
-        rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))    
-
-    def dispatch_waypoint(self):
-        pass       
+        rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))       
     
     def run_node(self):
 
-        init_coords = [20.87, 61.492]
-
+        # Define note rate
         update_period = self.time_step
         rate = rospy.Rate(1/update_period)
-        # while True:
+
         while not rospy.is_shutdown():
-
-            self.dispatch_waypoint()
-
             rate.sleep()
 
     def update_ref(self):
-        """ Update referece and publish new waypoint"""
+        """
+        Update referece and publish new waypoint
+        """
 
         rospy.loginfo("Determining new waypoint")
 
-        # Determine if y displacement should be positive or negative
-        sign = 2 * (self.controller_state.n_waypoints % 2) - 1
-
-        # Determine if we have reached the front
-        i = len(self.samples)
-        front_crossed = self.has_crossed_the_front()
-        # rospy.loginfo("Crossed the front : {}".format(front_crossed))
-        # rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
-        if len(self.samples)>0:
-            rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
-
-        distance = self.controller_params.distance if front_crossed else 0
-        along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance*2
-
-        # Determine the next waypoint
-        next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
-        next_wp_theta = math.degrees(math.atan2(next_wp.y,next_wp.x))
-        rospy.loginfo("Next waypoint is {} m, {} m relative to current position ({:.2f} degrees)".format(next_wp.x,next_wp.y,next_wp_theta))
-
-        # Bearing should always be 45%?
-        bearing, range = Utils.toPolar(x=next_wp.x,y= next_wp.y)
-        rospy.loginfo("HEADING {} degrees".format(math.degrees(self.controller_state.direction)))
-        rospy.loginfo("BEARING {} degrees".format(math.degrees(bearing)))
-
-        # Add current direction to bearing
-        bearing += self.controller_state.direction
-        rospy.loginfo("Next waypoint is has bearing and range : {} degrees {} m".format(math.degrees(bearing),range))
+        # Declare variables needed for wp generation
+        bearing = self.controller_state.direction
+        distance = self.controller_params.distance
 
         # calculate change from current position
-        dx = range*math.cos(bearing)
-        dy = range*math.sin(bearing)
+        dx = distance*math.cos(bearing)
+        dy = distance*math.sin(bearing)
 
         # calculate displacement for waypoint
         lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
 
-        # Store waypoint
+        # Store and publish waypoint
         self.controller_state.waypoint_position.lat = lat
         self.controller_state.waypoint_position.lon = lon
         publish_waypoint(latlontoutm_service = self.LATLONTOUTM_SERVICE,controller_params=self.controller_params,waypoint_pub=self.waypoint_pub,enable_waypoint_pub=self.enable_waypoint_pub,lat=self.controller_state.waypoint_position.lat,lon=self.controller_state.waypoint_position.lon,depth=0)
@@ -387,22 +342,15 @@ class algalbloom_tracker_node(object):
     def update_direction(self):
         """ Update the direction of the track """
 
-        rospy.loginfo("Updating bearing direction")
-
-        # Determine if we have reached the front
-        i = len(self.samples)
-        front_crossed = self.has_crossed_the_front()
-        rospy.loginfo("Crossed the front : {}".format(front_crossed))
-        rospy.loginfo("Samples taken : {}/{}".format(i,self.args['estimation_trigger_val']))
-        if len(self.samples)>0:
-            rospy.loginfo("Latest sample : {}/{}".format(self.samples[-1],0.95*self.args['delta_ref']))
-
-        # Carry on moving in straight line if the front has not been crossed
-        if not front_crossed:
+        # Move in inital direction if front not reached
+        if not self.has_crossed_the_front():
             return
 
+        # Update bearing if front has been reached
+        rospy.loginfo("Updating bearing direction")
+
         # Estimate direction of the front
-        grad = self.estimate_gradient()
+        grad = self.gradients[-1]
         grad_heading = math.atan2(grad[1],grad[0]) # rad
         rospy.loginfo("Estimated gradient : {} ({} degrees)".format(grad,math.degrees(grad_heading)))
 
@@ -437,9 +385,9 @@ class algalbloom_tracker_node(object):
         return grad_norm
 
     def perform_control(self,grad):
-        """ Calculate the control action 
-        
-        returns the new heading"""
+        """ 
+        Returns new heading based on the provided gradient vector
+        """
 
         # Create vector orthogonal to gradient
         epsi = np.array([-grad[1],grad[0]])
