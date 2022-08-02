@@ -79,7 +79,11 @@ class algalbloom_tracker_node(object):
         self.n_meas = 125 # 125
         self.grad_filter_len = 2 # 2
         self.meas_filter_len = 3 # 3
-        self.alpha = 0.95 # Gradient update factor, 0.95            
+        self.alpha = 0.95 # Gradient update factor, 0.95 
+
+        # Trajectory
+        self.trajectory = np.array([])      
+        self.trajectory =  np.empty((0,2), dtype=float)     
 
         # Chlorophyl samples
         self.samples = np.array([])
@@ -266,15 +270,6 @@ class algalbloom_tracker_node(object):
 
         # logging stuff :)
         rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))       
-    
-    def run_node(self):
-
-        # Define note rate
-        update_period = self.time_step
-        rate = rospy.Rate(1/update_period)
-
-        while not rospy.is_shutdown():
-            rate.sleep()
 
     def update_ref(self):
         """
@@ -420,7 +415,29 @@ class algalbloom_tracker_node(object):
         except Exception as e:
             rospy.logwarn("Failed to disabled Waypoint following")
 
+        out_path = rospy.get_param('~output_data_path')
+        try :
+            Utils.save_raw_mission_data(out_path=out_path, traj=self.trajectory,measurements=self.samples,grads=self.gradients,delta_ref=self.args['delta_ref'])
+            rospy.logwarn("Data saved!")
+        except Exception as e:
+            rospy.logwarn(e)
+            rospy.logwarn("Failed to save data")
+
         exit(1)
+
+    def run_node(self):
+
+        # Define note rate
+        update_period = self.time_step
+        rate = rospy.Rate(1/update_period)
+        
+        while not rospy.is_shutdown():
+            
+            # Update trajectory
+            position = np.array([[self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat]])
+            self.trajectory = np.append(self.trajectory, position,axis=0)
+
+            rate.sleep()
 
 if __name__ == '__main__':
 

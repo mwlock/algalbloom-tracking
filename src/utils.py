@@ -1,6 +1,7 @@
 import math
 import utm
 import numpy as np
+import h5py as h5
 
 from controller.positions import AbsolutePosition
 
@@ -44,3 +45,42 @@ class Utils():
                 res[i, j] = x[i] - X[j]
 
         return res
+
+    @staticmethod
+    def save_raw_mission_data(out_path,measurements,grads,delta_ref,traj):
+        """
+        Write raw mission data to out_path\raw.m5 when algal bloom tracking node is closed
+        """
+
+        with h5.File(out_path+"/raw.h5", 'w') as f:
+            f.create_dataset("traj", data=traj)
+            f.create_dataset("measurement_vals", data=measurements)
+            f.create_dataset("grad_vals", data=grads)
+            f.attrs.create("delta_ref", data=delta_ref)
+            
+
+    @staticmethod
+    def save_mission(out_path,grid,meas_per):
+        """
+        Save mission measurements/traj/etc
+
+        Works by reading the last saved output/raw.m5 file and combining this with the simulated grid of the current mission
+        """
+
+        with h5.File(out_path+"/raw.h5", 'r') as f:
+            traj = f["traj"][()]
+            measurement_vals = f["measurement_vals"][()]
+            grad_vals = f["grad_vals"][()]
+            delta_ref = f.attrs["delta_ref"]
+
+        with h5.File(out_path+"/mission.m5", 'w') as f:
+            f.create_dataset("traj", data=traj)
+            f.create_dataset("chl", data=grid.data)
+            f.create_dataset("lon", data=grid.lon)
+            f.create_dataset("lat", data=grid.lat)
+            f.create_dataset("time", data=grid.time)
+            f.create_dataset("measurement_vals", data=measurement_vals)
+            f.create_dataset("grad_vals", data=grad_vals)
+            f.attrs.create("t_idx", data=grid.t_idx)
+            f.attrs.create("delta_ref", data=delta_ref)
+            f.attrs.create("meas_period", data=meas_per) 

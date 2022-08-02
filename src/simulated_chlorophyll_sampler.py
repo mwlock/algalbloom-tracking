@@ -8,11 +8,15 @@ import os
 import scipy.io
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+import signal
 
 import rospy
 from std_msgs.msg import Float64, Header, Bool, Empty, Header
 from geographic_msgs.msg import GeoPoint, GeoPointStamped
 from smarc_msgs.msg import ChlorophyllSample,GotoWaypoint,AlgaeFrontGradient
+
+# Saving data
+from utils import Utils
 
 # Graphing
 import matplotlib.pyplot as plt
@@ -322,9 +326,29 @@ class chlorophyll_sampler_node(object):
             self.publish_sample()
             rate.sleep()
 
+    def close_node(self,signum, frame):
+        """
+        Kill node ans save data
+        """
+        
+        rospy.logwarn("Closing node")
+        out_path = rospy.get_param('~output_data_path')
+
+        try :
+            Utils.save_mission(out_path=out_path,grid=self.grid,meas_per=self.update_period)
+        except Exception as e:
+            rospy.logwarn(e)
+            rospy.logwarn("Failed to save data")
+
+        exit(1)
+
 if __name__ == '__main__':
 
     rospy.init_node("simulated_chlorophyll_sampler")
     sampler = chlorophyll_sampler_node()
+
+    # Attach exit handler
+    signal.signal(signal.SIGINT, sampler.close_node)
+
     sampler.run_node()
         

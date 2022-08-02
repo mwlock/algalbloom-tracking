@@ -1,2 +1,4 @@
 *.pyc
 .vscode/settings.json
+*.m5
+*.h5

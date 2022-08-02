@@ -1,9 +1,11 @@
 <launch>
 	<!-- Data parameters -->
 	<arg name="data_file_base_path" default="$(find smarc_algal_bloom_tracking)/data"/>
+	<arg name="output_data_path" default="$(find smarc_algal_bloom_tracking)/output"/>
 
 	<!-- Tracker node -->
     <node name="algalbloom_tracker" pkg="smarc_algal_bloom_tracking" type="algalbloom_tracker.py" output="screen">
+		<param name="output_data_path" value="$(arg output_data_path)"/>
 		<!-- control parameters -->
 		<param name="following_gain" value="25.0"/>
 		<param name="seeking_gain" value="1.0"/>
@@ -16,7 +18,7 @@
 		<param name="measurement_period" value="6"/>	
 		<!-- plan parameters -->
 		<param name="initial_heading" value="0.0"/>
-		<param name="delta_ref" value="7.25"/>
+		<param name="delta_ref" value="7.45"/>
     </node>
 
 </launch>
