@@ -427,8 +427,8 @@ class algalbloom_tracker_node(object):
 
     def run_node(self):
 
-        # Define note rate
-        update_period = self.time_step
+        # Define node rate
+        update_period = 1
         rate = rospy.Rate(1/update_period)
         
         while not rospy.is_shutdown():

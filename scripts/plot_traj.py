@@ -82,9 +82,6 @@ offset = traj.shape[0]-1
 if traj.shape[1] == 3:
     t_idx = np.argmin(np.abs(traj[n+offset,-1] - time))
 
-print(lon[0])
-print(lon[-1])
-
 # Plot trajectory
 fig, ax = plt.subplots()
 ax.set_aspect('equal')
@@ -98,17 +95,13 @@ ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r.', linewidth=1)
 ax.set_xlabel("Longitude (degrees E)")
 ax.set_ylabel("Latitude (degrees N)")
 
-print(traj)
-print('test')
-print(len(delta_vals))
-print(delta_vals)
-
 # Front detection idx and x-axis construction - only for full trajectories
 if args.grad_error or args.ref:
     idx_trig = 0
     for i in range(len(delta_vals)):
         if delta_ref - 5e-3 <= delta_vals[i] <= delta_ref + 5e-3:
             idx_trig = i
+            print(i)
             break
 
     if traj.shape[1] == 3:
@@ -119,24 +112,29 @@ if args.grad_error or args.ref:
 
 
 if args.grad_error:
+    
+    # gt => ground truth
     gt_grad_vals = np.zeros([delta_vals.shape[0], 2])
     dot_prod_cos = np.zeros(delta_vals.shape[0])
     grad_vals_cos = np.zeros(delta_vals.shape[0])
     gt_grad_vals_cos = np.zeros(delta_vals.shape[0])
 
     if traj.shape[1] == 2:
+
+        # Ground truth gradient
         gt_grad = np.gradient(chl[:,:,t_idx])
         gt_grad_norm = np.sqrt(gt_grad[0]**2 + gt_grad[1]**2)
         gt_gradient = (RegularGridInterpolator((lon, lat), gt_grad[0]/gt_grad_norm),
                     RegularGridInterpolator((lon, lat), gt_grad[1]/gt_grad_norm))
-
+        
         # Compute ground truth gradients
-        for i in range(delta_vals.shape[0]-1):
+        for i in range(1,delta_vals.shape[0]-1):
             if i % 2000 == 0:
                 print("Computing gradient... Current iteration:", i)
 
-            gt_grad_vals[i, 0] = gt_gradient[0]((traj[i*meas_per,0], traj[i*meas_per,1]))
-            gt_grad_vals[i, 1] = gt_gradient[1]((traj[i*meas_per,0], traj[i*meas_per,1]))
+            x = int(i*meas_per)
+            gt_grad_vals[i, 0] = gt_gradient[0]((traj[x,0], traj[x,1]))
+            gt_grad_vals[i, 1] = gt_gradient[1]((traj[x,0], traj[x,1]))
             dot_prod_cos[i] = np.dot(grad_vals[i], gt_grad_vals[i]) / (np.linalg.norm(grad_vals[i]) * np.linalg.norm(gt_grad_vals[i]))
 
             grad_vals_cos[i] = grad_vals[i, 0] / np.linalg.norm(grad_vals[i])
@@ -203,7 +201,7 @@ if args.ref:
     plt.xlabel('Mission time [h]')
     plt.ylabel('Chl a density [mm/mm3]')
     # plt.axis([0, it[-1], np.min(delta_vals), 0.5+np.max(delta_vals)])
-    plt.axis([0, it[-1], delta_ref-0.5, delta_ref+0.5])
+    plt.axis([0, it[-1], delta_ref-3, delta_ref+3])
     # plt.title("Measurements \n Average relative error = %.4f %%" % (error))
     plt.legend(loc=4, shadow=True)
 
