@@ -7,18 +7,22 @@
     <node name="algalbloom_tracker" pkg="smarc_algal_bloom_tracking" type="algalbloom_tracker.py" output="screen">
 		<param name="output_data_path" value="$(arg output_data_path)"/>
 		<!-- control parameters -->
-		<param name="following_gain" value="25.0"/>
+		<param name="following_gain" value="1.0"/>
 		<param name="seeking_gain" value="1.0"/>
-		<param name="wp_distance" value="20"/>
+		<param name="wp_distance" value="15"/>
 		<param name="threshold" value="0.1"/>
 		<param name="estimation_trigger_val" value="45"/>
 		<param name="speed" value="5"/>	
-		<param name="waypoint_tolerance" value="5"/>	
-		<param name="range" value="200"/>	
-		<param name="measurement_period" value="6"/>	
+		<param name="travel_rpm" value="800"/>
+		<param name="waypoint_tolerance" value="10"/>	
+		<param name="range" value="20"/>	
+		<param name="measurement_period" value="6"/>
+		<param name="gradient_decay" value="0.3"/>
+		<param name="n_meas" value="150"/>		
 		<!-- plan parameters -->
 		<param name="initial_heading" value="0.0"/>
 		<param name="delta_ref" value="7.45"/>
+		<!-- simulated data parameters -->
     </node>
 
 </launch>

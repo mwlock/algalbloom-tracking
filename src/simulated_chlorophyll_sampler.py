@@ -297,29 +297,30 @@ class chlorophyll_sampler_node(object):
                 cp = fig.colorbar(p, cax=cax)
                 cp.set_label("Chl a density [mm/mm3]")
                 ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.delta_ref])
-                plt.pause(0.0001)
+                # plt.pause(0.0001)
 
                 self.grid_plotted = True
 
             # Plot gradient
             if self.grid_plotted and self.is_valid_gradient() and self.counter % 10 == 0:
                 ax.arrow(x=self.grad_lon, y=self.grad_lat, dx=0.00005*self.grad_x, dy=0.00005*self.grad_y, width=.00002) 
-                plt.pause(0.0001)
+                # plt.pause(0.0001)
             
             # Plot position
             if self.grid_plotted and self.is_valid_position():
                 ax.plot(self.lon,self.lat,'r.', linewidth=1)                
-                plt.pause(0.0001)
+                # plt.pause(0.0001)
 
             # Plot waypoint
             if self.grid_plotted and self.is_valid_waypoint():
                 ax.plot(self.wp_lon,self.wp_lat,'w.', linewidth=1)
-                plt.pause(0.0001)
+                
+            plt.pause(0.0001)
 
             # Plot vp
-            if self.grid_plotted and self.is_valid_vp():
-                ax.plot(self.vp_lon,self.vp_lat,'.', markersize=10,color="orange")
-                plt.pause(0.0001)
+            # if self.grid_plotted and self.is_valid_vp():
+            #     ax.plot(self.vp_lon,self.vp_lat,'.', markersize=10,color="orange")
+            #     plt.pause(0.0001)
 
             self.counter +=1
 

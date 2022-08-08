@@ -75,8 +75,19 @@ if args.anim:
     traj_short = traj[0:-1:int(traj.shape[0]/300)]
     plot_anim(traj_short)
 
+def trim_zeros(arr):
+     """Returns a trimmed view of an n-D array excluding any outer
+     regions which contain only zeros.
+     """
+     slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(arr))
+     return arr[slices]
+
 # Change n, offset values bellow to plot different parts of the trajectory
-n = 1
+traj = trim_zeros(traj)
+
+print(traj)
+
+n = 0
 offset = traj.shape[0]-1
 
 if traj.shape[1] == 3:

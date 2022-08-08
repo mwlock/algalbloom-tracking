@@ -16,3 +16,6 @@ class ControllerParameters:
 
         # Waypoint tolerance (m)
         self.waypoint_tolerance = 0
+
+        # Set exponential gradient decay
+        self.grad_decay = 0.95

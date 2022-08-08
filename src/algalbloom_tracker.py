@@ -60,10 +60,17 @@ class algalbloom_tracker_node(object):
         self.args['wp_distance']  = rospy.get_param('~wp_distance')                                 # wp_distance [m]
         self.args['estimation_trigger_val'] = rospy.get_param('~estimation_trigger_val')            # number of samples before estimation
         self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed [m/s]  
+        self.args['travel_rpm'] = rospy.get_param('~travel_rpm')   
         self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')                    # waypoint tolerance [m]
         self.args['range'] = rospy.get_param('~range')                                              # estimation circle radius [m]
         self.args['measurement_period'] = rospy.get_param('~measurement_period')                    # measurement period [s]        
+        self.args['gradient_decay'] = rospy.get_param('~gradient_decay') 
+        self.args['n_meas'] = rospy.get_param('~n_meas') 
 
+        # Controller 
+        self.controller_state = ControllerState()
+        self.controller_params = ControllerParameters()
+        
         # Move these elsewhere (TODO)
         # Gaussian Process Regression
         self.kernel = "MAT"
@@ -76,26 +83,27 @@ class algalbloom_tracker_node(object):
 
         # Move these elsewhere (TODO)
         # Algorithm settings
-        self.n_meas = 125 # 125
+        self.n_meas = self.args['n_meas']
         self.grad_filter_len = 2 # 2
         self.meas_filter_len = 3 # 3
-        self.alpha = 0.95 # Gradient update factor, 0.95 
+
+        # Data points that can be captured (enough for 83.3 hours)
+        array_size = int(3e5)
 
         # Trajectory
         self.trajectory = np.array([])      
-        self.trajectory =  np.empty((0,2), dtype=float)     
+        self.trajectory =  np.zeros((array_size,2), dtype=float)     
+        self.cti = -1 # Current trajectory index
 
         # Chlorophyl samples
-        self.samples = np.array([])
-        self.samples_positions =  np.empty((0,2), dtype=float)
+        self.samples = np.zeros(array_size)
+        self.samples_positions =  np.zeros((array_size,2), dtype=float)
+        self.csi = -1   # "Current sample index"
         self.last_sample = -1
 
         # Gradient
-        self.gradients = np.empty((0,2), dtype=float)
-
-        # Controller 
-        self.controller_state = ControllerState()
-        self.controller_params = ControllerParameters()
+        self.gradients = np.zeros((array_size,2), dtype=float)
+        self.cgi = -1 # "Current gradient index"
 
         self.inited = False
         self.waypoints_cleared = True
@@ -157,6 +165,7 @@ class algalbloom_tracker_node(object):
         self.controller_params.seeking_gain = self.args['seeking_gain']
         self.controller_params.speed = self.args['speed']
         self.controller_params.waypoint_tolerance = self.args['waypoint_tolerance']
+        self.controller_params.grad_decay = self.args['gradient_decay']
 
         # Setup estimator
         self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
@@ -224,9 +233,9 @@ class algalbloom_tracker_node(object):
             # Count waypoints reached
             self.controller_state.n_waypoints +=1
 
-            self.update_direction()             # Determine control direction
-            self.update_virtual_position()      # Update virtual postion
-            self.update_ref()                   # Send new waypoint
+            # self.update_direction()             # Determine control direction
+            # self.update_virtual_position()      # Update virtual postion
+            # self.update_ref()                   # Send new waypoint
 
             self.waypoints_cleared = False
 
@@ -241,32 +250,39 @@ class algalbloom_tracker_node(object):
 
         #TODO : Make the measurement a service so that controller can set measurement period
 
+        # Increment sample index
+        self.csi +=1
+
         # read values (the sensor is responsible for providing the Geo stamp i.e. lat lon co-ordinates)
         position = np.array([[fb.lon,fb.lat]])
         sample = fb.sample
         self.last_sample = fb.header.stamp
 
         # Apply moving average filter (size 3)
-        self.samples = np.append(self.samples,sample) 
-        self.samples[-1] = np.average(self.samples[-3:])
+        # self.samples = np.append(self.samples,sample) 
+        # self.samples[-1] = np.average(self.samples[-3:])
+        self.samples[self.csi] = sample 
+        self.samples[self.csi] = np.average(self.samples[:self.csi+1][-3:]) # average over last three elements
 
         # Record sample position   
-        self.samples_positions = np.append(self.samples_positions, position,axis=0)
-
-        # Check if front has been reached
-        if not self.front_crossed:
-            if self.samples[-1] >= 0.95*self.args['delta_ref']:
-                rospy.loginfo("FRONT HAS BEEN REACHED")
-                self.front_crossed = True
-                self.update_virtual_position()
-                self.update_direction()                
-                self.update_ref()
-                self.waypoints_cleared = False
+        self.samples_positions[self.csi] = position
 
         grad_angle = None
         if self.inited:
             grad = self.estimate_gradient()
             grad_angle = math.degrees(math.atan2(grad[1],grad[0]))
+        else:
+            return
+
+        # Check if front has been reached
+        if not self.front_crossed:
+            if self.samples[self.csi] >= 0.95*self.args['delta_ref']:
+                rospy.loginfo("FRONT HAS BEEN REACHED")
+                self.front_crossed = True
+                
+        self.update_direction()             # Determine control direction
+        self.update_virtual_position()      # Update virtual postion
+        self.update_ref()                   # Send new waypoint
 
         # logging stuff :)
         rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))       
@@ -287,26 +303,33 @@ class algalbloom_tracker_node(object):
         dy = distance*math.sin(bearing)
 
         # calculate displacement for waypoint
-        lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
+        if not self.has_crossed_the_front():
+            # Use VP to try and ensure sraight line when moving towards
+            lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
+        else:
+            lat, lon = Utils.displace(current_position=self.controller_state.absolute_position,dx=dx,dy=dy)
+
+        # Get params
+        travel_rpm = self.args['travel_rpm']
 
         # Store and publish waypoint
         self.controller_state.waypoint_position.lat = lat
         self.controller_state.waypoint_position.lon = lon
-        publish_waypoint(latlontoutm_service = self.LATLONTOUTM_SERVICE,controller_params=self.controller_params,waypoint_pub=self.waypoint_pub,enable_waypoint_pub=self.enable_waypoint_pub,lat=self.controller_state.waypoint_position.lat,lon=self.controller_state.waypoint_position.lon,depth=0)
+        publish_waypoint(latlontoutm_service = self.LATLONTOUTM_SERVICE,controller_params=self.controller_params,waypoint_pub=self.waypoint_pub,enable_waypoint_pub=self.enable_waypoint_pub,lat=self.controller_state.waypoint_position.lat,lon=self.controller_state.waypoint_position.lon,depth=0,travel_rpm=travel_rpm)
 
     def get_track_position(self,origin,use_relative_position=True):
         """ Return distance along the track """
 
         if use_relative_position:
 
-            rospy.loginfo("Track position dx : {}".format(self.controller_state.relative_postion.x))
-            rospy.loginfo("Track position dy : {}".format(self.controller_state.relative_postion.y))
+            # rospy.loginfo("Track position dx : {}".format(self.controller_state.relative_postion.x))
+            # rospy.loginfo("Track position dy : {}".format(self.controller_state.relative_postion.y))
             
             bearing, range = Utils.toPolar(x=self.controller_state.relative_postion.x,y=self.controller_state.relative_postion.y)
-            rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
+            # rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
             bearing = bearing - self.controller_state.direction
             rospy.loginfo("Controller bearing : {}".format(math.degrees(self.controller_state.direction)))
-            rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
+            # rospy.loginfo("Track postion bearing and range : {:.2f} (degrees) {} (m)".format(math.degrees(bearing),range))
 
             x = range * math.cos(bearing)
             return x
@@ -331,7 +354,7 @@ class algalbloom_tracker_node(object):
 
     def has_crossed_the_front(self):
         """ Logic for determining if the front has been crossed"""
-        i = len(self.samples)
+        i = self.csi+1
         return (i >= self.args['estimation_trigger_val'] and self.front_crossed)
 
     def update_direction(self):
@@ -345,7 +368,7 @@ class algalbloom_tracker_node(object):
         rospy.loginfo("Updating bearing direction")
 
         # Estimate direction of the front
-        grad = self.gradients[-1]
+        grad = self.gradients[self.cgi]
         grad_heading = math.atan2(grad[1],grad[0]) # rad
         rospy.loginfo("Estimated gradient : {} ({} degrees)".format(grad,math.degrees(grad_heading)))
 
@@ -357,25 +380,53 @@ class algalbloom_tracker_node(object):
 
         # TODO (Add windowed filtering on samples to smoothen out?)
 
-        # Estimate the gradient
+        # Increment index
+        self.cgi +=1
+        
+        # Get last n_meas elements
+        a = self.samples_positions[:self.csi+1][-(self.n_meas+1):]
+        b = self.samples[:self.csi+1][-(self.n_meas+1):]
+
+        # # Estimate gradient
+        # try:
+        #     grad = np.array(self.est.est_grad(a, b)).squeeze()
+        # except Exception as e:
+        #     rospy.logwarn("Error estimating gradient, using previous")
+        #     if self.cgi >0 :
+        #         grad =  self.gradients[self.cgi-1]
+        #     else:
+        #         grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
+
+        # Estimate the gradient (does this corrupt the reading?)
         if self.has_crossed_the_front():
-            grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
-                                                                self.samples[-(self.n_meas+1):])).squeeze()
+            grad = np.array(self.est.est_grad(a, b)).squeeze()
+            # grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
+            #                                                     self.samples[-(self.n_meas+1):])).squeeze()
         else:
             grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
+        
+        # # Estimate the gradient
+        # if len(self.samples<1):
+        #     grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
+        # else:
+        #     grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
+        #                                                         self.samples[-(self.n_meas+1):])).squeeze()
 
-        self.gradients = np.append(self.gradients,[grad],axis=0)
+        # Normalise gradient (unit vector) and record
+        grad = grad / np.linalg.norm(grad)
+        self.gradients[self.cgi] = grad
 
-        # Normalise gradient (unit vector)
-        self.gradients[-1] = self.gradients[-1] / np.linalg.norm(self.gradients[-1])
+        print(grad)
 
         # Apply decaying factor to gradient (not sure if this will work)
-        if len(self.gradients)>1:
-            self.gradients[-1] = self.gradients[-2] * self.alpha + self.gradients[-1] * (1-self.alpha)
+        alpha = self.controller_params.grad_decay
+        if self.cgi>0:
+            self.gradients[self.cgi] = self.gradients[self.cgi-1] * alpha + self.gradients[self.cgi] * (1-alpha)
 
         # Publish calculated gradient
-        grad_norm = self.gradients[-1]
-        publish_gradient(lon =self.samples_positions[-1][0], lat=self.samples_positions[-1][1],x=grad_norm[0],y=grad_norm[1],gradient_pub=self.gradient_pub)
+        grad_norm = self.gradients[self.cgi]
+        samp_pos = self.samples_positions[self.csi]
+        publish_gradient(lon =samp_pos[0], lat=samp_pos[1],x=grad_norm[0],y=grad_norm[1],gradient_pub=self.gradient_pub)
 
         return grad_norm
 
@@ -387,21 +438,20 @@ class algalbloom_tracker_node(object):
         # Create vector orthogonal to gradient
         epsi = np.array([-grad[1],grad[0]])
 
-        error = self.args['delta_ref'] - self.samples[-1]
+        error = self.args['delta_ref'] - self.samples[self.csi]
         u_seek = self.controller_params.seeking_gain * error * grad
         u_follow = self.controller_params.following_gain * epsi
         u = u_seek + u_follow
 
         seek_angle =  math.degrees(math.atan2(u_seek[1],u_seek[0])) 
         follow_angle = math.degrees(math.atan2(u_follow[1],u_follow[0]))  
+        heading = math.atan2(u[1],u[0])
 
         rospy.loginfo(("error : {}".format(error)))
         rospy.loginfo(("seek control : {} ({} degrees)".format(u_seek,seek_angle)))
         rospy.loginfo(("follow control : {} ({} degrees)".format(u_follow,follow_angle)))
-
-        heading = math.atan2(u[1],u[0])
-        rospy.loginfo(("heading : {} (degrees)".format(math.degrees(heading))))
-
+        rospy.loginfo(("final control : {} ({} degrees)".format(u,math.degrees(heading))))
+        
         return heading
 
     def close_node(self,signum, frame):
@@ -434,8 +484,9 @@ class algalbloom_tracker_node(object):
         while not rospy.is_shutdown():
             
             # Update trajectory
+            self.cti +=1
             position = np.array([[self.controller_state.absolute_position.lon,self.controller_state.absolute_position.lat]])
-            self.trajectory = np.append(self.trajectory, position,axis=0)
+            self.trajectory[self.cti] = position
 
             rate.sleep()
 
