@@ -85,8 +85,6 @@ def trim_zeros(arr):
 # Change n, offset values bellow to plot different parts of the trajectory
 traj = trim_zeros(traj)
 
-print(traj)
-
 n = 0
 offset = traj.shape[0]-1
 
@@ -110,9 +108,8 @@ ax.set_ylabel("Latitude (degrees N)")
 if args.grad_error or args.ref:
     idx_trig = 0
     for i in range(len(delta_vals)):
-        if delta_ref - 5e-3 <= delta_vals[i] <= delta_ref + 5e-3:
+        if delta_ref - 5e-3 <= delta_vals[i]:
             idx_trig = i
-            print(i)
             break
 
     if traj.shape[1] == 3:
@@ -150,6 +147,10 @@ if args.grad_error:
 
             grad_vals_cos[i] = grad_vals[i, 0] / np.linalg.norm(grad_vals[i])
             gt_grad_vals_cos[i] = gt_grad_vals[i, 0] / np.linalg.norm(gt_grad_vals[i])
+
+        # Determine gradient angle
+        gt_grad_angles = np.arctan2(gt_grad_vals[:, 1],gt_grad_vals[:, 0])
+        grad_angles = np.arctan2(grad_vals[:, 1],grad_vals[:, 0])
 
     else:
         gt_grad = np.gradient(chl)
@@ -194,6 +195,15 @@ if args.grad_error:
     plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
 
+    # Plot gradient angle
+    plt.figure()
+    plt.plot(it, gt_grad_angles, 'k-', linewidth=0.8, label='Estimated from GP Model')
+    plt.plot(it, grad_angles, 'r-', linewidth=1.5, label='Ground truth')
+    plt.xlabel('Mission time [h]')
+    plt.ylabel('Gradient [rad]')
+    # plt.axis([0, np.max(it), -1.2, 1.2])
+    plt.legend(loc=4, shadow=True)
+
     # Plot gradients
     # step = int(grad_vals.shape[0] / 20)
     # for i in range(0, grad_vals.shape[0], step):
@@ -212,7 +222,7 @@ if args.ref:
     plt.xlabel('Mission time [h]')
     plt.ylabel('Chl a density [mm/mm3]')
     # plt.axis([0, it[-1], np.min(delta_vals), 0.5+np.max(delta_vals)])
-    plt.axis([0, it[-1], delta_ref-3, delta_ref+3])
+    plt.axis([0, it[-1], delta_ref-1.5, delta_ref+1.5])
     # plt.title("Measurements \n Average relative error = %.4f %%" % (error))
     plt.legend(loc=4, shadow=True)
 
