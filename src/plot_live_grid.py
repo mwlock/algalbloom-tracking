@@ -28,9 +28,6 @@ VITUAL_POSITION_TOPIC = '/sam/algae_tracking/vp'
 LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
 WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
 
-# Publishers
-from publishers.lat_lon_offset import publish_offset
-
 import math
 
 def rotate(origin, point, angle):
@@ -105,15 +102,48 @@ def read_mat_data(timestamp,include_time=False,scale_factor=1,lat_shift=0,lon_sh
 
 class chlorophyll_sampler_node(object):
 
+    def offset__cb(self,fb):
+        """
+        Get offset for the purpose of plotting the grid
+        """
+
+        self.gps_lat_offset = fb.position.latitude
+        self.gps_lon_offset = fb.position.longitude
+
+
+    def vp__cb(self,fb):
+
+        self.vp_lat = fb.position.latitude
+        self.vp_lon = fb.position.longitude
+
+    def gradient__cb(self,fb):
+
+        # Extract gradient
+        self.grad_lat = fb.lat
+        self.grad_lon = fb.lon
+        self.grad_x = fb.x
+        self.grad_y = fb.y
+
+    def waypoint__cb(self,fb):
+
+        # Rotate waypoint waypoint
+        origin = (self.origin_lon,self.origin_lat)
+        point = (fb.lon, fb.lat)
+        angle = math.radians(self.data_rotate_angle)
+        lon, lat = rotate(origin, point, -angle)
+        
+        # Extract new waypoint
+        self.wp_lat = lat 
+        self.wp_lon = lon 
+
+        rospy.loginfo("New waypoint received! : {} , {} ".format(self.wp_lat,self.wp_lon))
+
     def lat_lon__cb(self,fb):
-
+        
         # Determine the offset of the GPS
-        if not self.init and self.offset_gps:
-            self.gps_lat_offset = fb.latitude - self.lat_centre
-            self.gps_lon_offset = fb.longitude - self.lon_centre
-
-        # Publish offset (for the purpose of plottting in plot_live_grid)
-        publish_offset(lat=self.gps_lat_offset,lon=self.gps_lon_offset,pub=self.lat_lon_offset_publisher)
+        if None in [self.gps_lat_offset,self.gps_lon_offset]:
+            rospy.logwarn("No offset received, cannot plot grid...")
+            return
 
         # Offset position
         self.lat = fb.latitude # - self.gps_lat_offset 
@@ -122,13 +152,6 @@ class chlorophyll_sampler_node(object):
         # Check offset correct set
         if not self.init:
 
-            # Determine offsets
-            lat_error = (fb.latitude - self.gps_lat_offset) - self.lat_centre
-            long_Error = (fb.longitude - self.gps_lon_offset) - self.lon_centre
-            rospy.loginfo("Offset error : {}, {}".format(lat_error,long_Error))
-            rospy.loginfo("Offset lat : {}".format(self.gps_lat_offset))
-            rospy.loginfo("Offset lon : {}".format(self.gps_lon_offset))
-
             # Offset the data
             self.grid = read_mat_data(self.timestamp, include_time=self.include_time,scale_factor=self.scale_factor,lat_shift=self.gps_lat_offset,lon_shift=self.gps_lon_offset)
 
@@ -136,7 +159,7 @@ class chlorophyll_sampler_node(object):
             self.origin_lat = fb.latitude
             self.origin_lon = fb.longitude
 
-        # Rotate data       
+        # Rotate data (work in progress)  
         # origin = (self.origin_lon,self.origin_lat)
         # point = (self.lon, self.lat)
         # angle = math.radians(self.data_rotate_angle)
@@ -162,6 +185,20 @@ class chlorophyll_sampler_node(object):
         self.lat = None
         self.lon = None
 
+        # Waypoint
+        self.wp_lat = None
+        self.wp_lon = None
+
+        # Virtual position
+        self.vp_lat = None
+        self.vp_lon = None
+
+        # Gradient
+        self.grad_lat = None
+        self.grad_lon = None
+        self.grad_x = None
+        self.grad_y = None
+
         self.origin_lat = None
         self.origin_lon = None
         self.data_rotate_angle = rospy.get_param('~data_rotate_angle')
@@ -172,53 +209,37 @@ class chlorophyll_sampler_node(object):
         self.grid = read_mat_data(self.timestamp, include_time=self.include_time,scale_factor=self.scale_factor)
 
         # Check if data should be offset
-        self.gps_lat_offset = 0
-        self.gps_lon_offset = 0
-        self.lat_centre =  0
-        self.lon_centre =  0
-        self.offset_gps = rospy.get_param('~offset_gps')
-        if self.offset_gps:
-            self.lat_centre =  rospy.get_param('~starting_lat')
-            self.lon_centre =  rospy.get_param('~starting_lon')
+        self.gps_lat_offset = None
+        self.gps_lon_offset = None
 
         # Publishers and subscribers
         self.dr_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
-        self.chlorophyll_publisher = rospy.Publisher('/sam/algae_tracking/chlorophyll_sampling', ChlorophyllSample, queue_size=1)
-        self.lat_lon_offset_publisher = rospy.Publisher('/sam/algae_tracking/lat_lon_offset', GeoPointStamped, queue_size=2)
-
+        self.waypoint_sub = rospy.Subscriber(WAPOINT_TOPIC, GotoWaypoint, self.waypoint__cb, queue_size=2)
+        self.gradient_sub = rospy.Subscriber(GRADIENT_TOPIC, AlgaeFrontGradient, self.gradient__cb, queue_size=2)
+        self.vp_sub = rospy.Subscriber(VITUAL_POSITION_TOPIC, GeoPointStamped, self.vp__cb, queue_size=2)
+        self.lat_lon_offset_sub = rospy.Subscriber('/sam/algae_tracking/lat_lon_offset', GeoPointStamped, self.offset__cb,queue_size=2)
         # Plotting
         self.grid_plotted = False
 
-    def publish_sample(self):
-        """ Publish Chlorophyll Sample"""
-
-        # Get current position
+    def is_valid_position(self):
+        """ Determine if current position is valid"""
         current_position = [self.lon,self.lat]
+        return None not in current_position
 
-        # Do nothing if current lat/long not set
-        if None in current_position:
-            rospy.logwarn("Cannot take sample, current lat/lon is None : [{},{}]".format(self.lat,self.lon))
-            return
+    def is_valid_waypoint(self):
+        """ Determine if current waypoint is valid"""
+        current_waypoint = [self.wp_lat,self.wp_lon]
+        return None not in current_waypoint
 
-        # Get sample
-        try:
-            std = 1e-3 # standard deviation of measurement
-            val = self.grid.field(current_position) + np.random.normal(0, std)
-        except Exception as e:
-            rospy.logwarn("Unable to attain sample at : {} {}".format(self.lat,self.lon))
-            return
+    def is_valid_vp(self):
+        """ Determine if current vp is valid"""
+        current_vp = [self.vp_lon,self.vp_lat]
+        return None not in current_vp
 
-        # Publish sample message
-        sample = ChlorophyllSample()
-        sample.header = Header()
-        sample.header.stamp = rospy.Time.now()
-        sample.lat = self.lat
-        sample.lon = self.lon
-        sample.sample = val
-
-        # Publish message
-        rospy.loginfo('Publishing sample : {} at {},{}'.format(sample.sample,sample.lat,sample.lon))
-        self.chlorophyll_publisher.publish(sample)
+    def is_valid_gradient(self):
+        """ Determine if current gradient is valid"""
+        current_grad = [self.grad_lat,self.grad_lon,self.grad_x,self.grad_y]
+        return None not in current_grad
 
     def run_node(self):
         """ Start sampling """
@@ -228,14 +249,46 @@ class chlorophyll_sampler_node(object):
 
         while not rospy.is_shutdown():
 
-            self.counter +=1
+            # Plot grid
+            if not self.grid_plotted and self.init:
 
-            self.publish_sample()
+                ax.set_aspect('equal')
+                xx, yy = np.meshgrid(self.grid.lon, self.grid.lat, indexing='ij')
+                p = plt.pcolormesh(xx, yy, self.grid.data[:,:,self.grid.t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
+                cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+                cp = fig.colorbar(p, cax=cax)
+                cp.set_label("Chl a density [mm/mm3]")
+                ax.contour(xx, yy, self.grid.data[:,:,self.grid.t_idx], levels=[self.delta_ref])
+                # plt.pause(0.0001)
+
+                self.grid_plotted = True
+
+            # Plot gradient
+            if self.grid_plotted and self.is_valid_gradient() and self.counter % 10 == 0:
+                ax.arrow(x=self.grad_lon, y=self.grad_lat, dx=0.00005*self.grad_x, dy=0.00005*self.grad_y, width=.00002) 
+                # plt.pause(0.0001)
+            
+            # Plot position
+            if self.grid_plotted and self.is_valid_position():
+                ax.plot(self.lon,self.lat,'r.', linewidth=1)                
+                # plt.pause(0.0001)
+
+            # Plot waypoint
+            if self.grid_plotted and self.is_valid_waypoint():
+                ax.plot(self.wp_lon,self.wp_lat,'w.', linewidth=1)
+                
+            plt.pause(0.0001)
+
+            # Plot vp
+            # if self.grid_plotted and self.is_valid_vp():
+            #     ax.plot(self.vp_lon,self.vp_lat,'.', markersize=10,color="orange")
+            #     plt.pause(0.0001)
+
             rate.sleep()
 
     def close_node(self,signum, frame):
         """
-        Kill node and save data
+        Kill node ans save data
         """
         
         rospy.logwarn("Closing node")
@@ -251,7 +304,7 @@ class chlorophyll_sampler_node(object):
 
 if __name__ == '__main__':
 
-    rospy.init_node("simulated_chlorophyll_sampler")
+    rospy.init_node("plot_live_grid")
     sampler = chlorophyll_sampler_node()
 
     # Attach exit handler

@@ -455,6 +455,9 @@ class algalbloom_tracker_node(object):
         return heading
 
     def close_node(self,signum, frame):
+        """
+        Stop following behaviour, save data output and close the node
+        """
         rospy.logwarn("Closing node")
         rospy.logwarn("Attempting to end waypoint following")
 
@@ -467,8 +470,17 @@ class algalbloom_tracker_node(object):
 
         out_path = rospy.get_param('~output_data_path')
         try :
-            Utils.save_raw_mission_data(out_path=out_path, traj=self.trajectory,measurements=self.samples,grads=self.gradients,delta_ref=self.args['delta_ref'])
+
+            # Trim arrays
+            traj = self.trajectory[:self.cti+1]
+            measurements = self.samples[:self.csi+1]
+            grads=self.gradients[:self.cgi+1]
+            delta_ref = self.args['delta_ref']
+
+            # Write data to file
+            Utils.save_raw_mission_data(out_path=out_path, traj=traj,measurements=measurements,grads=grads,delta_ref=delta_ref)
             rospy.logwarn("Data saved!")
+
         except Exception as e:
             rospy.logwarn(e)
             rospy.logwarn("Failed to save data")
