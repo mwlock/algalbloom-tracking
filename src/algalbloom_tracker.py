@@ -185,13 +185,9 @@ class algalbloom_tracker_node(object):
         Update virtual position of the robot using dead reckoning
         """
 
-        fb.latitude = fb.latitude 
-        fb.longitude = fb.longitude
-
         # Get position
         self.controller_state.absolute_position.lat = fb.latitude
         self.controller_state.absolute_position.lon = fb.longitude
-        # rospy.loginfo(self.controller_state)
 
         # Set virtual postion (initalisation of vp)
         if not self.inited:           
@@ -210,11 +206,11 @@ class algalbloom_tracker_node(object):
 
 
     def waypoint_reached__cb(self,fb):
-        """ Waypoint reached
-        
-        Logic checking for proximity threshold is handled by the line following action"""
+        """ 
+        Waypoint reached        
+        Logic checking for proximity threshold is handled by the line following action
+        """
 
-        # Determine if waypoint has been reached
         if fb.status.text == "WP Reached":
 
             rospy.loginfo("Waypoint reached signal received")
@@ -233,9 +229,15 @@ class algalbloom_tracker_node(object):
             # Count waypoints reached
             self.controller_state.n_waypoints +=1
 
-            # self.update_direction()             # Determine control direction
-            # self.update_virtual_position()      # Update virtual postion
-            # self.update_ref()                   # Send new waypoint
+            # Switch direction of the zig zag
+            if self.controller_state.n_waypoints  >= 2:
+                rospy.loginfo("Switching direction")
+                self.controller_state.n_waypoints = 0
+                self.update_direction()
+
+            # Update position and determine new waypoint
+            self.update_virtual_position()      # Update virtual postion
+            self.update_ref()                   # Send new waypoint
 
             self.waypoints_cleared = False
 
@@ -248,7 +250,7 @@ class algalbloom_tracker_node(object):
         lat lon position where the reading was taken.         
         """
 
-        #TODO : Make the measurement a service so that controller can set measurement period
+        #TODO:Make the measurement a service so that controller can set measurement period
 
         # Increment sample index
         self.csi +=1
@@ -259,14 +261,13 @@ class algalbloom_tracker_node(object):
         self.last_sample = fb.header.stamp
 
         # Apply moving average filter (size 3)
-        # self.samples = np.append(self.samples,sample) 
-        # self.samples[-1] = np.average(self.samples[-3:])
         self.samples[self.csi] = sample 
         self.samples[self.csi] = np.average(self.samples[:self.csi+1][-3:]) # average over last three elements
 
         # Record sample position   
         self.samples_positions[self.csi] = position
 
+        # Estimate gradient with new sample
         grad_angle = None
         if self.inited:
             grad = self.estimate_gradient()
@@ -279,13 +280,16 @@ class algalbloom_tracker_node(object):
             if self.samples[self.csi] >= 0.95*self.args['delta_ref']:
                 rospy.loginfo("FRONT HAS BEEN REACHED")
                 self.front_crossed = True
-                
-        self.update_direction()             # Determine control direction
-        self.update_virtual_position()      # Update virtual postion
-        self.update_ref()                   # Send new waypoint
+
+                # Trigger zig-zag
+                self.controller_state.n_waypoints = 0
+                self.update_virtual_position()
+                self.update_direction()                
+                self.update_ref()
+                self.waypoints_cleared = False
 
         # logging stuff :)
-        rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,len(self.samples)))       
+        rospy.loginfo('Sample : {} at {},{} est gradient {:.2f} degrees (sample #{})'.format(fb.sample,fb.lat,fb.lon,grad_angle,self.csi))       
 
     def update_ref(self):
         """
@@ -294,20 +298,34 @@ class algalbloom_tracker_node(object):
 
         rospy.loginfo("Determining new waypoint")
 
-        # Declare variables needed for wp generation
-        bearing = self.controller_state.direction
-        distance = self.controller_params.distance
+        # Determine if y displacement should be positive or negative
+        sign = 2 * (self.controller_state.n_waypoints % 2) - 1
+        front_crossed = self.has_crossed_the_front()
+
+        # Determine distance for waypoint
+        distance = self.controller_params.distance if front_crossed else 0
+        along_track_displacement = distance / math.tan(math.radians(self.controller_params.angle)) if front_crossed else self.controller_params.distance*2
+
+        # Determine the next waypoint
+        next_wp = RelativePosition(x=along_track_displacement,y=sign*distance)
+        next_wp_theta = math.degrees(math.atan2(next_wp.y,next_wp.x))
+        rospy.loginfo("Next waypoint is {} m, {} m relative to current position ({:.2f} degrees)".format(next_wp.x,next_wp.y,next_wp_theta))
+
+        # Determine bearing
+        bearing, range = Utils.toPolar(x=next_wp.x,y= next_wp.y)
+        rospy.loginfo("HEADING {} degrees".format(math.degrees(self.controller_state.direction)))
+        rospy.loginfo("BEARING {} degrees".format(math.degrees(bearing)))
+
+        # Add current direction to bearing
+        bearing += self.controller_state.direction
+        rospy.loginfo("Next waypoint is has bearing and range : {} degrees {} m".format(math.degrees(bearing),range))
 
         # calculate change from current position
-        dx = distance*math.cos(bearing)
-        dy = distance*math.sin(bearing)
+        dx = range*math.cos(bearing)
+        dy = range*math.sin(bearing)
 
         # calculate displacement for waypoint
-        if not self.has_crossed_the_front():
-            # Use VP to try and ensure sraight line when moving towards
-            lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
-        else:
-            lat, lon = Utils.displace(current_position=self.controller_state.absolute_position,dx=dx,dy=dy)
+        lat, lon = Utils.displace(current_position=self.controller_state.virtual_position,dx=dx,dy=dy)
 
         # Get params
         travel_rpm = self.args['travel_rpm']
@@ -387,30 +405,11 @@ class algalbloom_tracker_node(object):
         a = self.samples_positions[:self.csi+1][-(self.n_meas+1):]
         b = self.samples[:self.csi+1][-(self.n_meas+1):]
 
-        # # Estimate gradient
-        # try:
-        #     grad = np.array(self.est.est_grad(a, b)).squeeze()
-        # except Exception as e:
-        #     rospy.logwarn("Error estimating gradient, using previous")
-        #     if self.cgi >0 :
-        #         grad =  self.gradients[self.cgi-1]
-        #     else:
-        #         grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
-
         # Estimate the gradient (does this corrupt the reading?)
         if self.has_crossed_the_front():
             grad = np.array(self.est.est_grad(a, b)).squeeze()
-            # grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
-            #                                                     self.samples[-(self.n_meas+1):])).squeeze()
         else:
             grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
-        
-        # # Estimate the gradient
-        # if len(self.samples<1):
-        #     grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
-        # else:
-        #     grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
-        #                                                         self.samples[-(self.n_meas+1):])).squeeze()
 
         # Normalise gradient (unit vector) and record
         grad = grad / np.linalg.norm(grad)

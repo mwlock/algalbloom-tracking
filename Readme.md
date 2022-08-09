@@ -3,6 +3,11 @@
 Required packages:
 - [smarc_msgs fork](https://github.com/matthew-william-lock/smarc_msgs)
 
+## Branches
+
+- [main](https://github.com/matthew-william-lock/algalbloom-tracking) - purely directional control along front
+- [zig-zag] - zig-zag pattern along front
+
 ## Recording ros bags
 
 Example of recording odom and waypoint locations
