@@ -6,7 +6,7 @@ Required packages:
 ## Branches
 
 - [main](https://github.com/matthew-william-lock/algalbloom-tracking) - purely directional control along front
-- [zig-zag] - zig-zag pattern along front
+- [zig-zag](https://github.com/matthew-william-lock/algalbloom-tracking/tree/zig-zag) - zig-zag pattern along front
 
 ## Recording ros bags
 
