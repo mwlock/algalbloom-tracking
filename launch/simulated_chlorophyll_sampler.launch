@@ -5,7 +5,7 @@
 	<arg name="data_downs_scale_factor" value="1.0" />
 	<arg name="offset_gps" value="True"/>
 	<arg name="data_rotate_angle" value="0.0" />
-	<arg name="sampling_time" value="1.0" />
+	<arg name="sampling_time" value="5.0" />
 	<arg name="delta_ref" value="7.45" />
 
 

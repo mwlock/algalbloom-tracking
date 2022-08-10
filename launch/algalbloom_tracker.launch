@@ -9,7 +9,7 @@
 		<!-- control parameters -->
 		<param name="following_gain" value="1.0"/>
 		<param name="seeking_gain" value="1.0"/>
-		<param name="wp_distance" value="15"/>
+		<param name="wp_distance" value="200"/>
 		<param name="threshold" value="0.1"/>
 		<param name="estimation_trigger_val" value="45"/>
 		<param name="speed" value="5"/>	

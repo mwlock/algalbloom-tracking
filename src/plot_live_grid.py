@@ -286,21 +286,21 @@ class chlorophyll_sampler_node(object):
 
             rate.sleep()
 
-    def close_node(self,signum, frame):
-        """
-        Kill node ans save data
-        """
+    # def close_node(self,signum, frame):
+    #     """
+    #     Kill node ans save data
+    #     """
         
-        rospy.logwarn("Closing node")
-        out_path = rospy.get_param('~output_data_path')
+    #     rospy.logwarn("Closing node")
+    #     out_path = rospy.get_param('~output_data_path')
 
-        try :
-            Utils.save_mission(out_path=out_path,grid=self.grid,meas_per=self.update_period)
-        except Exception as e:
-            rospy.logwarn(e)
-            rospy.logwarn("Failed to save data")
+    #     try :
+    #         Utils.save_mission(out_path=out_path,grid=self.grid,meas_per=self.update_period)
+    #     except Exception as e:
+    #         rospy.logwarn(e)
+    #         rospy.logwarn("Failed to save data")
 
-        exit(1)
+    #     exit(1)
 
 if __name__ == '__main__':
 
@@ -308,7 +308,7 @@ if __name__ == '__main__':
     sampler = chlorophyll_sampler_node()
 
     # Attach exit handler
-    signal.signal(signal.SIGINT, sampler.close_node)
+    # signal.signal(signal.SIGINT, sampler.close_node)
 
     sampler.run_node()
         
