@@ -19,3 +19,6 @@ class ControllerParameters:
 
         # Set exponential gradient decay
         self.grad_decay = 0.95
+
+        # Zig-zag angle
+        angle = 0

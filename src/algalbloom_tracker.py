@@ -66,6 +66,7 @@ class algalbloom_tracker_node(object):
         self.args['measurement_period'] = rospy.get_param('~measurement_period')                    # measurement period [s]        
         self.args['gradient_decay'] = rospy.get_param('~gradient_decay') 
         self.args['n_meas'] = rospy.get_param('~n_meas') 
+        self.args['zig_zag_angle'] = rospy.get_param('~zig_zag_angle')
 
         # Controller 
         self.controller_state = ControllerState()
@@ -160,6 +161,7 @@ class algalbloom_tracker_node(object):
         self.controller_state.direction = math.radians(self.args['initial_heading'])  # [radians]
 
         # Init controller params
+        self.controller_params.angle = self.args['zig_zag_angle']
         self.controller_params.distance = self.args['wp_distance']
         self.controller_params.following_gain = self.args['following_gain']
         self.controller_params.seeking_gain = self.args['seeking_gain']
@@ -229,8 +231,13 @@ class algalbloom_tracker_node(object):
             # Count waypoints reached
             self.controller_state.n_waypoints +=1
 
+            # Update direction
+            if self.controller_state.n_waypoints == 2:
+                rospy.loginfo("Switching direction")
+                self.update_direction()
+
             # Switch direction of the zig zag
-            if self.controller_state.n_waypoints  >= 2:
+            if self.controller_state.n_waypoints  >= 4:
                 rospy.loginfo("Switching direction")
                 self.controller_state.n_waypoints = 0
                 self.update_direction()
@@ -298,8 +305,11 @@ class algalbloom_tracker_node(object):
 
         rospy.loginfo("Determining new waypoint")
 
+        signs = [-1,0,1,0]
+
         # Determine if y displacement should be positive or negative
-        sign = 2 * (self.controller_state.n_waypoints % 2) - 1
+        # sign = 2 * (self.controller_state.n_waypoints % 2) - 1
+        sign = signs[self.controller_state.n_waypoints]
         front_crossed = self.has_crossed_the_front()
 
         # Determine distance for waypoint

@@ -276,13 +276,12 @@ class chlorophyll_sampler_node(object):
             # Plot waypoint
             if self.grid_plotted and self.is_valid_waypoint():
                 ax.plot(self.wp_lon,self.wp_lat,'w.', linewidth=1)
-                
-            plt.pause(0.0001)
 
             # Plot vp
-            # if self.grid_plotted and self.is_valid_vp():
-            #     ax.plot(self.vp_lon,self.vp_lat,'.', markersize=10,color="orange")
-            #     plt.pause(0.0001)
+            if self.grid_plotted and self.is_valid_vp():
+                ax.plot(self.vp_lon,self.vp_lat,'.', markersize=10,color="orange")
+
+            plt.pause(0.0001)
 
             rate.sleep()
 
