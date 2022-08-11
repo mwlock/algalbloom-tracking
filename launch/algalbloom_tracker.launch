@@ -7,7 +7,7 @@
     <node name="algalbloom_tracker" pkg="smarc_algal_bloom_tracking" type="algalbloom_tracker.py" output="screen">
 		<param name="output_data_path" value="$(arg output_data_path)"/>
 		<!-- control parameters -->
-		<param name="following_gain" value="1.0"/>
+		<param name="following_gain" value="25.0"/>
 		<param name="seeking_gain" value="1.0"/>		
 		<param name="threshold" value="0.1"/>
 		<param name="estimation_trigger_val" value="20"/>

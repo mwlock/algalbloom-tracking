@@ -215,7 +215,7 @@ class algalbloom_tracker_node(object):
 
         if fb.status.text == "WP Reached":
 
-            rospy.loginfo("Waypoint reached signal received")
+            rospy.loginfo("Waypoint reached signal received")   
 
             # Check distance to waypoint
             x,y = Utils.displacement(self.controller_state.absolute_position,self.controller_state.waypoint_position)
@@ -227,6 +227,9 @@ class algalbloom_tracker_node(object):
             # Check that previous waypoints were reached
             if not self.waypoints_cleared:
                 return 
+
+            # Update virtual postion
+            self.update_virtual_position()   
 
             # Count waypoints reached
             self.controller_state.n_waypoints +=1
@@ -242,8 +245,7 @@ class algalbloom_tracker_node(object):
                 self.controller_state.n_waypoints = 0
                 self.update_direction()
 
-            # Update position and determine new waypoint
-            self.update_virtual_position()      # Update virtual postion
+            # Determine new waypoint
             self.update_ref()                   # Send new waypoint
 
             self.waypoints_cleared = False
@@ -424,8 +426,7 @@ class algalbloom_tracker_node(object):
         # Normalise gradient (unit vector) and record
         grad = grad / np.linalg.norm(grad)
         self.gradients[self.cgi] = grad
-
-        print(grad)
+        # print(grad)
 
         # Apply decaying factor to gradient (not sure if this will work)
         alpha = self.controller_params.grad_decay
