@@ -484,11 +484,12 @@ class algalbloom_tracker_node(object):
             # Trim arrays
             traj = self.trajectory[:self.cti+1]
             measurements = self.samples[:self.csi+1]
+            measurement_pos = self.samples_positions[:self.csi+1]
             grads=self.gradients[:self.cgi+1]
             delta_ref = self.args['delta_ref']
 
             # Write data to file
-            Utils.save_raw_mission_data(out_path=out_path, traj=traj,measurements=measurements,grads=grads,delta_ref=delta_ref)
+            Utils.save_raw_mission_data(out_path=out_path, traj=traj,measurements=measurements,grads=grads,delta_ref=delta_ref,measurement_pos=measurement_pos)
             rospy.logwarn("Data saved!")
 
         except Exception as e:

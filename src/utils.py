@@ -47,7 +47,7 @@ class Utils():
         return res
 
     @staticmethod
-    def save_raw_mission_data(out_path,measurements,grads,delta_ref,traj):
+    def save_raw_mission_data(out_path,measurements,grads,delta_ref,traj,measurement_pos):
         """
         Write raw mission data to out_path\raw.m5 when algal bloom tracking node is closed
         """
@@ -55,6 +55,7 @@ class Utils():
         with h5.File(out_path+"/raw.h5", 'w') as f:
             f.create_dataset("traj", data=traj)
             f.create_dataset("measurement_vals", data=measurements)
+            f.create_dataset("measurement_pos", data=measurement_pos)
             f.create_dataset("grad_vals", data=grads)
             f.attrs.create("delta_ref", data=delta_ref)
             

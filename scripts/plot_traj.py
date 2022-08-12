@@ -100,9 +100,16 @@ cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_p
 cp = fig.colorbar(p, cax=cax)
 cp.set_label("Chl a density [mm/mm3]")
 ax.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
-ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r.', linewidth=1)
+ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
 ax.set_xlabel("Longitude (degrees E)")
 ax.set_ylabel("Latitude (degrees N)")
+plt.savefig("traj.png",bbox_inches='tight')
+
+# Plot gradient arrows
+for index in range(delta_vals.shape[0]):
+    if index % 100 == 0 :
+        ax.arrow(x=traj[index*5,0], y=traj[index*5,1], dx=0.00005*grad_vals[index][0], dy=0.00005*grad_vals[index][1], width=.00002*10)
+plt.show()
 
 # Front detection idx and x-axis construction - only for full trajectories
 if args.grad_error or args.ref:
@@ -120,6 +127,8 @@ if args.grad_error or args.ref:
 
 
 if args.grad_error:
+
+    it = it/5
     
     # gt => ground truth
     gt_grad_vals = np.zeros([delta_vals.shape[0], 2])
@@ -194,6 +203,8 @@ if args.grad_error:
     # plt.title("Cosine of GT and Estimated gradient")
     plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
+    plt.grid(True)
+    plt.savefig("cos.png",bbox_inches='tight')
 
     # Plot gradient angle
     plt.figure()
@@ -213,6 +224,7 @@ if args.grad_error:
 
 # Reference tracking error
 if args.ref:
+    it = it/5
     error = np.mean(np.abs(delta_vals[idx_trig:] - delta_ref)/delta_ref)*100
     print("Reference average relative error = %.4f %%" % (error))
     plt.figure()
@@ -225,5 +237,7 @@ if args.ref:
     plt.axis([0, it[-1], delta_ref-1.5, delta_ref+1.5])
     # plt.title("Measurements \n Average relative error = %.4f %%" % (error))
     plt.legend(loc=4, shadow=True)
+    plt.grid(True)
+    plt.savefig("chl.png",bbox_inches='tight')
 
 plt.show()

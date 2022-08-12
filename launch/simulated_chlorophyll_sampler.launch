@@ -27,16 +27,16 @@
 		<param name="starting_lon" value="20.7923"/> -->
 
 		<!-- Downscale-100:middle down ish-->
-		<param name="starting_lat" value="61.4211"/>
-		<param name="starting_lon" value="20.7919"/>
+		<!-- <param name="starting_lat" value="61.4211"/>
+		<param name="starting_lon" value="20.7919"/> -->
 
 		<!-- Longer line -->
 		<!-- <param name="starting_lat" value="61.4215"/>
 		<param name="starting_lon" value="20.7926"/> -->
 
 		<!-- Downscale-100:bottom left -->
-		<!-- <param name="starting_lat" value="61.4193"/>
-		<param name="starting_lon" value="20.7909"/> -->
+		<param name="starting_lat" value="61.4193"/>
+		<param name="starting_lon" value="20.7909"/>
 
 		<!-- Downscale-1:middle -->
 		<!-- <param name="starting_lat" value="61.6568"/>
