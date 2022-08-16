@@ -235,12 +235,12 @@ class algalbloom_tracker_node(object):
             self.controller_state.n_waypoints +=1
 
             # Update direction
-            if self.controller_state.n_waypoints == 2:
-                rospy.loginfo("Switching direction")
-                self.update_direction()
+            # if self.controller_state.n_waypoints == 2:
+            #     rospy.loginfo("Switching direction")
+            #     self.update_direction()
 
             # Switch direction of the zig zag
-            if self.controller_state.n_waypoints  >= 4:
+            if self.controller_state.n_waypoints  >= 2:
                 rospy.loginfo("Switching direction")
                 self.controller_state.n_waypoints = 0
                 self.update_direction()
@@ -307,11 +307,11 @@ class algalbloom_tracker_node(object):
 
         rospy.loginfo("Determining new waypoint")
 
-        signs = [-1,0,1,0]
+        # signs = [-1,0,1,0]
 
         # Determine if y displacement should be positive or negative
-        # sign = 2 * (self.controller_state.n_waypoints % 2) - 1
-        sign = signs[self.controller_state.n_waypoints]
+        sign = 2 * (self.controller_state.n_waypoints % 2) - 1
+        # sign = signs[self.controller_state.n_waypoints]
         front_crossed = self.has_crossed_the_front()
 
         # Determine distance for waypoint

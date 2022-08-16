@@ -108,7 +108,7 @@ plt.savefig("traj.png",bbox_inches='tight')
 # Plot gradient arrows
 for index in range(delta_vals.shape[0]):
     if index % 100 == 0 :
-        ax.arrow(x=traj[index*5,0], y=traj[index*5,1], dx=0.00005*grad_vals[index][0], dy=0.00005*grad_vals[index][1], width=.00002*10)
+        ax.arrow(x=traj[index,0], y=traj[index,1], dx=0.00005*grad_vals[index][0], dy=0.00005*grad_vals[index][1], width=.00002)
 plt.show()
 
 # Front detection idx and x-axis construction - only for full trajectories
