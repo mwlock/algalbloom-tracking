@@ -241,8 +241,24 @@ class chlorophyll_sampler_node(object):
         rospy.logwarn("Closing node")
         out_path = rospy.get_param('~output_data_path')
 
+        # Get all relevant ros params
+        self.all_params = rospy.get_param_names()
+        self.tracking_params = [a for a in self.all_params if "algalbloom_tracker" in a]
+        self.sampler_params = [a for a in self.all_params if "simulated_chlorophyll_sampler" in a]
+
+        # track_params
+        track_params= {}
+        for key in self.tracking_params:
+            track_params[key] = rospy.get_param(key)
+
+        # sample_params
+        sample_params = {}
+        for key in self.sampler_params:
+            sample_params[key] = rospy.get_param(key)
+
         try :
-            Utils.save_mission(out_path=out_path,grid=self.grid,meas_per=self.update_period)
+            Utils.save_mission(out_path=out_path,grid=self.grid,meas_per=self.update_period,sample_params=sample_params,track_params=track_params)
+            rospy.logwarn("Data saved!")
         except Exception as e:
             rospy.logwarn(e)
             rospy.logwarn("Failed to save data")

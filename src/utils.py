@@ -47,7 +47,7 @@ class Utils():
         return res
 
     @staticmethod
-    def save_raw_mission_data(out_path,measurements,grads,delta_ref,traj):
+    def save_raw_mission_data(out_path,measurements,grads,delta_ref,traj,measurement_pos):
         """
         Write raw mission data to out_path\raw.m5 when algal bloom tracking node is closed
         """
@@ -55,12 +55,13 @@ class Utils():
         with h5.File(out_path+"/raw.h5", 'w') as f:
             f.create_dataset("traj", data=traj)
             f.create_dataset("measurement_vals", data=measurements)
+            f.create_dataset("measurement_pos", data=measurement_pos)
             f.create_dataset("grad_vals", data=grads)
             f.attrs.create("delta_ref", data=delta_ref)
             
 
     @staticmethod
-    def save_mission(out_path,grid,meas_per):
+    def save_mission(out_path,grid,meas_per,sample_params,track_params):
         """
         Save mission measurements/traj/etc
 
@@ -70,6 +71,8 @@ class Utils():
         with h5.File(out_path+"/raw.h5", 'r') as f:
             traj = f["traj"][()]
             measurement_vals = f["measurement_vals"][()]
+            measurement_pos = f["measurement_pos"][()]
+
             grad_vals = f["grad_vals"][()]
             delta_ref = f.attrs["delta_ref"]
 
@@ -80,7 +83,15 @@ class Utils():
             f.create_dataset("lat", data=grid.lat)
             f.create_dataset("time", data=grid.time)
             f.create_dataset("measurement_vals", data=measurement_vals)
+            f.create_dataset("measurement_pos", data=measurement_pos)
             f.create_dataset("grad_vals", data=grad_vals)
             f.attrs.create("t_idx", data=grid.t_idx)
             f.attrs.create("delta_ref", data=delta_ref)
             f.attrs.create("meas_period", data=meas_per) 
+
+            for key in sample_params:
+                f.attrs.create(key, data=sample_params[key]) 
+
+            for key in track_params:
+                f.attrs.create(key, data=track_params[key])
+            

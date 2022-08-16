@@ -62,8 +62,7 @@ class algalbloom_tracker_node(object):
         self.args['speed'] = rospy.get_param('~speed')                                              # waypoint following speed [m/s]  
         self.args['travel_rpm'] = rospy.get_param('~travel_rpm')   
         self.args['waypoint_tolerance'] = rospy.get_param('~waypoint_tolerance')                    # waypoint tolerance [m]
-        self.args['range'] = rospy.get_param('~range')                                              # estimation circle radius [m]
-        self.args['measurement_period'] = rospy.get_param('~measurement_period')                    # measurement period [s]        
+        self.args['range'] = rospy.get_param('~range')                                              # estimation circle radius [m]   
         self.args['gradient_decay'] = rospy.get_param('~gradient_decay') 
         self.args['n_meas'] = rospy.get_param('~n_meas') 
 
@@ -78,8 +77,6 @@ class algalbloom_tracker_node(object):
         # TODO : Should this be 200, this is apparently the estimation circle radius?
         self.range = self.args['range'] 
         self.params = [44.29588721, 0.54654887, 0.26656638]
-        self.time_step = 1
-        self.meas_per = int(10 / self.time_step) # measurement period
 
         # Move these elsewhere (TODO)
         # Algorithm settings
@@ -387,30 +384,11 @@ class algalbloom_tracker_node(object):
         a = self.samples_positions[:self.csi+1][-(self.n_meas+1):]
         b = self.samples[:self.csi+1][-(self.n_meas+1):]
 
-        # # Estimate gradient
-        # try:
-        #     grad = np.array(self.est.est_grad(a, b)).squeeze()
-        # except Exception as e:
-        #     rospy.logwarn("Error estimating gradient, using previous")
-        #     if self.cgi >0 :
-        #         grad =  self.gradients[self.cgi-1]
-        #     else:
-        #         grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
-
         # Estimate the gradient (does this corrupt the reading?)
         if self.has_crossed_the_front():
             grad = np.array(self.est.est_grad(a, b)).squeeze()
-            # grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
-            #                                                     self.samples[-(self.n_meas+1):])).squeeze()
         else:
             grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
-        
-        # # Estimate the gradient
-        # if len(self.samples<1):
-        #     grad = np.array([math.cos(self.controller_state.direction),math.sin(self.controller_state.direction)])
-        # else:
-        #     grad = np.array(self.est.est_grad(self.samples_positions[-(self.n_meas+1):], \
-        #                                                         self.samples[-(self.n_meas+1):])).squeeze()
 
         # Normalise gradient (unit vector) and record
         grad = grad / np.linalg.norm(grad)
@@ -421,7 +399,9 @@ class algalbloom_tracker_node(object):
         # Apply decaying factor to gradient (not sure if this will work)
         alpha = self.controller_params.grad_decay
         if self.cgi>0:
+            print("{} {}".format( self.gradients[self.cgi-1],self.gradients[self.cgi]))
             self.gradients[self.cgi] = self.gradients[self.cgi-1] * alpha + self.gradients[self.cgi] * (1-alpha)
+            print("{} {}".format( self.gradients[self.cgi-1],self.gradients[self.cgi]))
 
         # Publish calculated gradient
         grad_norm = self.gradients[self.cgi]
@@ -474,11 +454,12 @@ class algalbloom_tracker_node(object):
             # Trim arrays
             traj = self.trajectory[:self.cti+1]
             measurements = self.samples[:self.csi+1]
+            measurement_pos = self.samples_positions[:self.csi+1]
             grads=self.gradients[:self.cgi+1]
             delta_ref = self.args['delta_ref']
 
             # Write data to file
-            Utils.save_raw_mission_data(out_path=out_path, traj=traj,measurements=measurements,grads=grads,delta_ref=delta_ref)
+            Utils.save_raw_mission_data(out_path=out_path, traj=traj,measurements=measurements,grads=grads,delta_ref=delta_ref,measurement_pos=measurement_pos)
             rospy.logwarn("Data saved!")
 
         except Exception as e:

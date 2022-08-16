@@ -18,6 +18,15 @@
 		<param name="sampling_time" value="$(arg sampling_time)"  />
 		<param name="delta_ref" value="$(arg delta_ref)"  />
 
+		<!-- SIMULATIONS -->
+		<!-- ============================================================================= -->
+
+		<!-- Downscale 100 : Full path -->
+		<param name="starting_lat" value="61.4193"/>
+		<param name="starting_lon" value="20.7909"/>
+
+		<!-- ============================================================================= -->
+
 		<!-- OLD -->
 		<!-- <param name="starting_lat" value="61.42112"/>
 		<param name="starting_lon" value="20.79051"/> -->
@@ -27,8 +36,8 @@
 		<param name="starting_lon" value="20.7923"/> -->
 
 		<!-- Downscale-100:middle down ish-->
-		<param name="starting_lat" value="61.4211"/>
-		<param name="starting_lon" value="20.7919"/>
+		<!-- <param name="starting_lat" value="61.4211"/>
+		<param name="starting_lon" value="20.7919"/> -->
 
 		<!-- Longer line -->
 		<!-- <param name="starting_lat" value="61.4215"/>

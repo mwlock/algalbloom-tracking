@@ -69,6 +69,8 @@ with h5.File(args.path, 'r') as f:
     meas_per = f.attrs["meas_period"]
     t_idx = f.attrs["t_idx"]
 
+    attributes = f.attrs.items()
+
 chl_interp = RegularGridInterpolator((lon, lat, time), chl)
 
 if args.anim:
@@ -91,6 +93,10 @@ offset = traj.shape[0]-1
 if traj.shape[1] == 3:
     t_idx = np.argmin(np.abs(traj[n+offset,-1] - time))
 
+# Print attributes
+for att in attributes:
+    print("{} : {}".format(att[0],att[1]))
+
 # Plot trajectory
 fig, ax = plt.subplots()
 ax.set_aspect('equal')
@@ -100,9 +106,16 @@ cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_p
 cp = fig.colorbar(p, cax=cax)
 cp.set_label("Chl a density [mm/mm3]")
 ax.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
-ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r.', linewidth=1)
+ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
 ax.set_xlabel("Longitude (degrees E)")
 ax.set_ylabel("Latitude (degrees N)")
+plt.grid(True)
+
+# Plot gradient arrows
+# for index in range(delta_vals.shape[0]):
+#     if index % 10 == 0 :
+#         ax.arrow(x=traj[index,0], y=traj[index,1], dx=0.00005*grad_vals[index][0], dy=0.00005*grad_vals[index][1], width=.00002)
+plt.savefig("traj.png",bbox_inches='tight')
 
 # Front detection idx and x-axis construction - only for full trajectories
 if args.grad_error or args.ref:
@@ -183,6 +196,8 @@ if args.grad_error:
     # plt.title("Gradient deviation cosine\nAverage relative error = %.4f %%" % (error))
     plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
+    plt.grid(True)
+    plt.savefig("cos_deviation.png",bbox_inches='tight')
 
     # Cosine comparison
     plt.figure()
@@ -194,6 +209,8 @@ if args.grad_error:
     # plt.title("Cosine of GT and Estimated gradient")
     plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
+    plt.grid(True)
+    plt.savefig("cos.png",bbox_inches='tight')
 
     # Plot gradient angle
     plt.figure()
@@ -203,6 +220,8 @@ if args.grad_error:
     plt.ylabel('Gradient [rad]')
     # plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
+    plt.grid(True)
+    plt.savefig("grad.png",bbox_inches='tight')
 
     # Plot gradients
     # step = int(grad_vals.shape[0] / 20)
@@ -222,8 +241,10 @@ if args.ref:
     plt.xlabel('Mission time [h]')
     plt.ylabel('Chl a density [mm/mm3]')
     # plt.axis([0, it[-1], np.min(delta_vals), 0.5+np.max(delta_vals)])
-    plt.axis([0, it[-1], delta_ref-1.5, delta_ref+1.5])
+    plt.axis([0, it[-1], 0, 12])
     # plt.title("Measurements \n Average relative error = %.4f %%" % (error))
     plt.legend(loc=4, shadow=True)
+    plt.grid(True)
+    plt.savefig("ref.png",bbox_inches='tight')
 
 plt.show()

@@ -245,7 +245,7 @@ class chlorophyll_sampler_node(object):
         """ Start sampling """
 
         # Sampling rate
-        rate = rospy.Rate(0.5)
+        rate = rospy.Rate(1)
 
         while not rospy.is_shutdown():
 
@@ -284,6 +284,7 @@ class chlorophyll_sampler_node(object):
             #     ax.plot(self.vp_lon,self.vp_lat,'.', markersize=10,color="orange")
             #     plt.pause(0.0001)
 
+            self.counter +=1
             rate.sleep()
 
     def close_node(self,signum, frame):
@@ -295,7 +296,8 @@ class chlorophyll_sampler_node(object):
         out_path = rospy.get_param('~output_data_path')
 
         try :
-            Utils.save_mission(out_path=out_path,grid=self.grid,meas_per=self.update_period)
+            # Utils.save_mission(out_path=out_path,grid=self.grid,meas_per=self.update_period)
+            pass
         except Exception as e:
             rospy.logwarn(e)
             rospy.logwarn("Failed to save data")
