@@ -22,8 +22,12 @@
 		<!-- ============================================================================= -->
 
 		<!-- Downscale 100 : Full path -->
-		<param name="starting_lat" value="61.4193"/>
-		<param name="starting_lon" value="20.7909"/>
+		<!-- <param name="starting_lat" value="61.4193"/>
+		<param name="starting_lon" value="20.7909"/> -->
+
+		<!-- Downscale-100:middle down ish-->
+		<param name="starting_lat" value="61.4211"/>
+		<param name="starting_lon" value="20.7919"/>
 
 		<!-- ============================================================================= -->
 

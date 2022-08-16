@@ -55,7 +55,7 @@ class Utils():
         with h5.File(out_path+"/raw.h5", 'w') as f:
             f.create_dataset("traj", data=traj)
             f.create_dataset("measurement_vals", data=measurements)
-            f.create_dataset("measurement_pos", data=measurement_pos)
+            # f.create_dataset("measurement_pos", data=measurement_pos)
             f.create_dataset("grad_vals", data=grads)
             f.attrs.create("delta_ref", data=delta_ref)
             
@@ -71,7 +71,7 @@ class Utils():
         with h5.File(out_path+"/raw.h5", 'r') as f:
             traj = f["traj"][()]
             measurement_vals = f["measurement_vals"][()]
-            measurement_pos = f["measurement_pos"][()]
+            # measurement_pos = f["measurement_pos"][()]
 
             grad_vals = f["grad_vals"][()]
             delta_ref = f.attrs["delta_ref"]
@@ -83,7 +83,7 @@ class Utils():
             f.create_dataset("lat", data=grid.lat)
             f.create_dataset("time", data=grid.time)
             f.create_dataset("measurement_vals", data=measurement_vals)
-            f.create_dataset("measurement_pos", data=measurement_pos)
+            # f.create_dataset("measurement_pos", data=measurement_pos)
             f.create_dataset("grad_vals", data=grad_vals)
             f.attrs.create("t_idx", data=grid.t_idx)
             f.attrs.create("delta_ref", data=delta_ref)
