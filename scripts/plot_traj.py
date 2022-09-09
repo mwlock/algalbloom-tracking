@@ -128,7 +128,7 @@ if args.grad_error or args.ref:
 
 if args.grad_error:
 
-    it = it/5
+    it = it
     
     # gt => ground truth
     gt_grad_vals = np.zeros([delta_vals.shape[0], 2])
@@ -208,12 +208,14 @@ if args.grad_error:
 
     # Plot gradient angle
     plt.figure()
-    plt.plot(it, gt_grad_angles, 'k-', linewidth=0.8, label='Estimated from GP Model')
-    plt.plot(it, grad_angles, 'r-', linewidth=1.5, label='Ground truth')
+    plt.plot(it, gt_grad_angles, 'k-', linewidth=0.8, label='Ground truth')
+    plt.plot(it, grad_angles, 'r-', linewidth=1.5, label='Estimated from GP Model')    
     plt.xlabel('Mission time [h]')
     plt.ylabel('Gradient [rad]')
     # plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
+    plt.grid(True)
+    plt.savefig("grad.png",bbox_inches='tight')
 
     # Plot gradients
     # step = int(grad_vals.shape[0] / 20)
