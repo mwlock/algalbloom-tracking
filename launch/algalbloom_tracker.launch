@@ -2,6 +2,8 @@
 	<!-- Data parameters -->
 	<arg name="data_file_base_path" default="$(find smarc_algal_bloom_tracking)/data"/>
 	<arg name="output_data_path" default="$(find smarc_algal_bloom_tracking)/output"/>
+	<arg name="robot_name" default="sam"/>
+	<arg name="gps_topic" default="/$(arg robot_name)/core/gps" />
 
 	<!-- Tracker node -->
     <node name="algalbloom_tracker" pkg="smarc_algal_bloom_tracking" type="algalbloom_tracker.py" output="screen">
@@ -22,6 +24,11 @@
 		<param name="initial_heading" value="0.0"/>
 		<param name="delta_ref" value="7.45"/>
 		<!-- simulated data parameters -->
+
+		<!-- Positional information -->
+		<param name="gps_topic" value="$(arg gps_topic)" />
+
+		
     </node>
 
 </launch>

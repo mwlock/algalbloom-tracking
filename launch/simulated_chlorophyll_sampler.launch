@@ -7,6 +7,8 @@
 	<arg name="data_rotate_angle" value="0.0" />
 	<arg name="sampling_time" value="1.0" />
 	<arg name="delta_ref" value="7.45" />
+	<arg name="robot_name" default="sam"/>
+	<arg name="gps_topic" default="/$(arg robot_name)/core/gps" />
 
 
     <node name="simulated_chlorophyll_sampler" pkg="smarc_algal_bloom_tracking" type="simulated_chlorophyll_sampler.py" output="screen">
@@ -59,6 +61,9 @@
 		<!-- <param name="starting_lat" value="61.4916"/>
 		<param name="starting_lon" value="20.9245"/> -->
 
+		<!-- Positional information -->
+		<param name="gps_topic" value="$(arg gps_topic)" />
+
     </node>
 
 	<node name="plot_live_grid" pkg="smarc_algal_bloom_tracking" type="plot_live_grid.py" output="screen">
@@ -69,6 +74,9 @@
 		<param name="data_rotate_angle" value="$(arg data_rotate_angle)"  />
 		<param name="sampling_time" value="$(arg sampling_time)"  />
 		<param name="delta_ref" value="$(arg delta_ref)"  />
+
+		<!-- Positional information -->
+		<param name="gps_topic" value="$(arg gps_topic)" />
     </node>
 
 </launch>

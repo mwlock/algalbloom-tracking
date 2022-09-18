@@ -14,8 +14,10 @@ import rospy
 import os
 
 # Smarc imports
-from geographic_msgs.msg import GeoPoint
 from smarc_msgs.msg import GotoWaypoint
+from sensor_msgs.msg import NavSatFix
+from geographic_msgs.msg import GeoPoint
+
 from std_msgs.msg import Bool
 from smarc_msgs.msg import GotoWaypointActionResult,ChlorophyllSample,AlgaeFrontGradient
 from geographic_msgs.msg import GeoPointStamped
@@ -36,11 +38,12 @@ from publishers.positions import publish_vp
 # Gradient estimation
 from estimators.gp import GPEstimator
 
+
 # Constants
 CHLOROPHYLL_TOPIC = '/sam/algae_tracking/chlorophyll_sampling'
 GRADIENT_TOPIC = '/sam/algae_tracking/gradient'
 VITUAL_POSITION_TOPIC = '/sam/algae_tracking/vp'
-LATLONG_TOPIC = '/sam/dr/lat_lon'
+# LATLONG_TOPIC = '/sam/dr/lat_lon'
 GOT_TO_WAYPOINT_RESULT = '/sam/ctrl/goto_waypoint/result'
 LIVE_WP_BASE_TOPIC = 'sam/smarc_bt/live_wp/'
 WAPOINT_TOPIC=LIVE_WP_BASE_TOPIC+'wp'
@@ -110,10 +113,11 @@ class algalbloom_tracker_node(object):
         self.chlorophyll_topic= CHLOROPHYLL_TOPIC 
         self.gradient_topic= GRADIENT_TOPIC 
         self.vitual_position_topic = VITUAL_POSITION_TOPIC
-        self.latlong_topic= LATLONG_TOPIC 
+        # self.latlong_topic= LATLONG_TOPIC 
         self.got_to_waypoint_result= GOT_TO_WAYPOINT_RESULT 
         self.wapoint_topic= WAPOINT_TOPIC 
         self.wapoint_enable_topic = WAPOINT_ENABLE_TOPIC 
+        self.gps_topic = rospy.get_param('~gps_topic', '/sam/core/gps')
 
         # Gradient publisher
         self.gradient_pub = rospy.Publisher(self.gradient_topic, AlgaeFrontGradient ,queue_size=1)
@@ -168,11 +172,12 @@ class algalbloom_tracker_node(object):
         self.est = GPEstimator(kernel=self.kernel, s=self.std, range_m=self.range, params=self.params)
 
         # Subscribe to topics
-        self.depth_sub = rospy.Subscriber(self.latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)        
+        self.depth_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.lat_lon__cb)
+        # self.depth_sub = rospy.Subscriber(self.latlong_topic, GeoPoint, self.lat_lon__cb, queue_size=2)        
         self.chlorophyll_sub = rospy.Subscriber(self.chlorophyll_topic, ChlorophyllSample, self.chlorophyl__cb, queue_size=2)      
         self.goal_reached_sub = rospy.Subscriber(self.got_to_waypoint_result, GotoWaypointActionResult, self.waypoint_reached__cb, queue_size=2)
 
-        rospy.loginfo("Subscribed to {}".format(self.latlong_topic))
+        rospy.loginfo("Subscribed to {}".format(self.gps_topic))
         rospy.loginfo("Subscribed to {}".format(self.chlorophyll_topic))
         rospy.loginfo("Subscribed to {}".format(self.got_to_waypoint_result))
 

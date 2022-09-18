@@ -13,7 +13,10 @@ import signal
 import rospy
 from std_msgs.msg import Float64, Header, Bool, Empty, Header
 from geographic_msgs.msg import GeoPoint, GeoPointStamped
+
 from smarc_msgs.msg import ChlorophyllSample,GotoWaypoint,AlgaeFrontGradient
+
+from sensor_msgs.msg import NavSatFix
 
 # Saving data
 from utils import Utils
@@ -212,8 +215,11 @@ class chlorophyll_sampler_node(object):
         self.gps_lat_offset = None
         self.gps_lon_offset = None
 
+        self.gps_topic = rospy.get_param('~gps_topic', '/sam/core/gps')
+
         # Publishers and subscribers
-        self.dr_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
+        # self.dr_sub = rospy.Subscriber('/sam/dr/lat_lon', GeoPoint, self.lat_lon__cb, queue_size=2)
+        self.dr_sub = rospy.Subscriber(self.gps_topic, NavSatFix, self.lat_lon__cb, queue_size=2)
         self.waypoint_sub = rospy.Subscriber(WAPOINT_TOPIC, GotoWaypoint, self.waypoint__cb, queue_size=2)
         self.gradient_sub = rospy.Subscriber(GRADIENT_TOPIC, AlgaeFrontGradient, self.gradient__cb, queue_size=2)
         self.vp_sub = rospy.Subscriber(VITUAL_POSITION_TOPIC, GeoPointStamped, self.vp__cb, queue_size=2)
