@@ -21,6 +21,8 @@ def parse_args():
     parser.add_argument("--ref", action="store_true", help="Plot comparison between measurements and \
                                                             reference value instead single plot.")
     parser.add_argument("--grad_error", action='store_true', help="Plot cosine of gradient deviation.")
+    # parser.add_argument("--zoom", action="store_true", help="Plot animation instead single plot.")
+    parser.add_argument('-z','--zoom', nargs='+', help='Zoom on a particlar region of the map [x0,y0,width,height]', required=False)
 
     return parser.parse_args()
 
@@ -97,20 +99,75 @@ if traj.shape[1] == 3:
 for att in attributes:
     print("{} : {}".format(att[0],att[1]))
 
+
+def plot_trajectory(axis):
+    """ Plot SAM trajectory """
+
+    ax.set_aspect('equal')
+    xx, yy = np.meshgrid(lon, lat, indexing='ij')
+    p = plt.pcolormesh(xx, yy, chl[:,:,t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
+    cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+    cp = fig.colorbar(p, cax=cax)
+    cp.set_label("Chl a density [mm/mm3]")
+    ax.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
+    ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
+    ax.set_xlabel("Longitude (degrees E)")
+    ax.set_ylabel("Latitude (degrees N)")
+    plt.grid(True)
+
+def plot_inset(axis,inset,zoom):
+    """Add inset (zoom) to plot
+    
+
+    Parameters
+    ----------
+    inset : list, required
+        Position of where to placed 'zoomed' axis. 
+        [x0, y0, width, height]
+    zoom : list, required
+        coordinates of the original plot that should be zoomed into
+        [x_lim_0,x_lim_1,y_lim_0,y_lim_1]
+    """
+    
+    # Create an inset axis at coordinates [inset]
+    axin = axis.inset_axes(inset) 
+
+    # Plot the data on the inset axis
+    plot_trajectory(axis=axin)
+
+    # Zoom in on the noisy data in the inset axis
+    axin.set_xlim(zoom[0], zoom[1])
+    axin.set_ylim(zoom[2], zoom[3])
+
+    # Hide inset axis ticks
+    axin.set_xticks([])
+    axin.set_yticks([])
+
+    # Add the lines to indicate where the inset axis is coming from
+    axis.indicate_inset_zoom(axin)    
+
+
 # Plot trajectory
 fig, ax = plt.subplots()
-ax.set_aspect('equal')
-xx, yy = np.meshgrid(lon, lat, indexing='ij')
-p = plt.pcolormesh(xx, yy, chl[:,:,t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
-cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-cp = fig.colorbar(p, cax=cax)
-cp.set_label("Chl a density [mm/mm3]")
-ax.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
-ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
-ax.set_xlabel("Longitude (degrees E)")
-ax.set_ylabel("Latitude (degrees N)")
-plt.grid(True)
+plot_trajectory(axis=ax)
 
+# Front detection idx and x-axis construction - only for full trajectories
+
+# Show zoomed in portion of the trajectory
+# https://matplotlib.org/stable/gallery/subplots_axes_and_figures/zoom_inset_axes.html
+# https://stackoverflow.com/questions/13583153/how-to-zoomed-a-portion-of-image-and-insert-in-the-same-plot-in-matplotlib
+# https://towardsdatascience.com/mastering-inset-axes-in-matplotlib-458d2fdfd0c0
+
+if args.zoom:
+
+    # Todo : Dynamically work out inset position from avaiable data
+
+    print(args.zoom)
+
+    plot_inset(axis=ax,inset=[19.1,59.3,0.1,0.05],zoom=[18.9,19,59.3,59.35])
+    plt.tight_layout()
+
+plt.show()
 # Plot gradient arrows
 # for index in range(delta_vals.shape[0]):
 #     if index % 10 == 0 :
@@ -130,7 +187,6 @@ if args.grad_error or args.ref:
         it = np.linspace(0, delta_t, len(delta_vals))
     elif traj.shape[1] == 2:
         it = np.linspace(0, time_step*(len(traj[:, 0])-1)/3600, len(delta_vals))
-
 
 if args.grad_error:
     
