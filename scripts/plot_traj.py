@@ -3,6 +3,8 @@
 # Original author : Alexandre Rocha
 # https://github.com/avrocha/front-tracking-algorithm
 
+import sys
+
 import numpy as np
 import h5py as h5
 import matplotlib.pyplot as plt
@@ -22,7 +24,8 @@ def parse_args():
                                                             reference value instead single plot.")
     parser.add_argument("--grad_error", action='store_true', help="Plot cosine of gradient deviation.")
     # parser.add_argument("--zoom", action="store_true", help="Plot animation instead single plot.")
-    parser.add_argument('-z','--zoom', nargs='+', help='Zoom on a particlar region of the map [x0,y0,width,height]', required=False)
+    parser.add_argument('-z','--zoom', nargs='+', help='Zoom on a particlar region of the map [x0,y0,width,height]', \
+        required=False,type=lambda s: [float(item) for item in s.split(',')])
 
     return parser.parse_args()
 
@@ -96,24 +99,18 @@ if traj.shape[1] == 3:
     t_idx = np.argmin(np.abs(traj[n+offset,-1] - time))
 
 # Print attributes
-for att in attributes:
-    print("{} : {}".format(att[0],att[1]))
+if sys.version_info.major == 2:
+    for att in attributes:
+        print("{} : {}".format(att[0],att[1]))
 
 
 def plot_trajectory(axis):
     """ Plot SAM trajectory """
-
-    ax.set_aspect('equal')
     xx, yy = np.meshgrid(lon, lat, indexing='ij')
     p = plt.pcolormesh(xx, yy, chl[:,:,t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
-    cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-    cp = fig.colorbar(p, cax=cax)
-    cp.set_label("Chl a density [mm/mm3]")
-    ax.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
-    ax.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
-    ax.set_xlabel("Longitude (degrees E)")
-    ax.set_ylabel("Latitude (degrees N)")
-    plt.grid(True)
+    axis.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
+    axis.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
+    return p
 
 def plot_inset(axis,inset,zoom):
     """Add inset (zoom) to plot
@@ -123,7 +120,8 @@ def plot_inset(axis,inset,zoom):
     ----------
     inset : list, required
         Position of where to placed 'zoomed' axis. 
-        [x0, y0, width, height]
+        [x0, y0, width, height] where [0,5,0,5,0.3,0.3] represents a region in the top right hand corner
+        30% the width and height of the original plot.
     zoom : list, required
         coordinates of the original plot that should be zoomed into
         [x_lim_0,x_lim_1,y_lim_0,y_lim_1]
@@ -149,7 +147,16 @@ def plot_inset(axis,inset,zoom):
 
 # Plot trajectory
 fig, ax = plt.subplots()
-plot_trajectory(axis=ax)
+p = plot_trajectory(axis=ax)
+ax.set_aspect('equal')
+cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+cp = fig.colorbar(p, cax=cax)
+cp.set_label("Chl a density [mm/mm3]")
+ax.set_xlabel("Longitude (degrees E)")
+ax.set_ylabel("Latitude (degrees N)")
+plt.grid(True)
+
+# plot_trajectory(axis=ax)
 
 # Front detection idx and x-axis construction - only for full trajectories
 
@@ -160,12 +167,33 @@ plot_trajectory(axis=ax)
 
 if args.zoom:
 
-    # Todo : Dynamically work out inset position from avaiable data
+    print(args.zoom[0])
 
-    print(args.zoom)
+    # Portion of figure to zoom
+    a = 0.1
+    b = 0.2
 
-    plot_inset(axis=ax,inset=[19.1,59.3,0.1,0.05],zoom=[18.9,19,59.3,59.35])
-    plt.tight_layout()
+    # Get lenght of lat and lon
+    lon_length = (lon[-1] - lon[0])
+    lat_length = (lat[-1] - lat[0])
+
+    print(lon_length)
+    print(args.zoom[1][0])
+
+    # Get centre coordinates of where to zoom
+    x_centre = lon_length*args.zoom[0][0] + lon[0]
+    y_centre = lat_length*args.zoom[1][0] + lat[0]
+
+    # Determine x_0 and y_0 of zoomed region
+    x0 = x_centre - lon_length*a/2
+    y0 = y_centre - lat_length*b/2
+
+    # Determine x_1 and y_1 of zoomed region
+    x1 = x_centre + lon_length*a/2
+    y1 = y_centre + lat_length*b/2
+
+    plot_inset(axis=ax,inset=[0.6, 0.3, a*3, b*3],zoom=[x0,x1,y0,y1])
+    # plt.tight_layout()
 
 plt.show()
 # Plot gradient arrows
