@@ -10,16 +10,26 @@ import h5py as h5
 import matplotlib.pyplot as plt
 from matplotlib import animation
 # from scipy.interpolate.interpolate import RegularGridInterpolator
+
 from scipy.interpolate import RegularGridInterpolator
+from scipy import spatial
 
 from argparse import ArgumentParser
 
+import geopy.distance
+
 # Setup plotting style
+
+# https://github.com/garrettj403/SciencePlots/issues/15
+
 plt.style.reload_library()
 plt.style.use(['science', 'no-latex'])
-plt.rcParams.update({'xtick.labelsize': 12,
-                    'ytick.labelsize': 12,
+plt.rcParams.update({'xtick.labelsize': 20,
+                    'ytick.labelsize': 20,
                     'axes.titlesize': 20,
+                    'axes.labelsize': 20,
+                    'legend.fontsize': 20,
+                    'legend.frameon' : True
                     })
 
 
@@ -30,7 +40,8 @@ def parse_args():
     parser.add_argument("--anim", action="store_true", help="Plot animation instead single plot.")
     parser.add_argument("--save_anim", type=str, help="Save the animation in the given file.")
     parser.add_argument("--ref", action="store_true", help="Plot comparison between measurements and \
-                                                            reference value instead single plot.")
+                                                            reference value instead single plot."),
+    parser.add_argument("--ref_error", action="store_true", help="Plot distance between path and reference level.")                                                            
     parser.add_argument("--grad_error", action='store_true', help="Plot cosine of gradient deviation.")
     parser.add_argument("--pdf", action='store_true', help="Save plots in pdf format")
     # parser.add_argument("--zoom", action="store_true", help="Plot animation instead single plot.")
@@ -96,26 +107,30 @@ def plot_trajectory(axis, show_contour_legend = False):
     axis.clabel(cs, inline=1, fontsize=10)
     axis.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
 
+    path = None
     if show_contour_legend:
         # https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_demo.html
+        # https://www.tutorialspoint.com/how-to-get-coordinates-from-the-contour-in-matplotlib
 
         # Determine which path is the longest (treat this as the gradient path)
         longest_path = 0
-        path = None
         for i in cs.collections[0].get_paths():
             path_length = i.vertices.shape[0]
             if path_length>longest_path:
                 longest_path = path_length
                 path  = i
 
-        plt.figure()
-        x = path.vertices[:, 0]
-        y = path.vertices[:, 1]
-        plt.figure()
-        plt.plot(x,y)
-        plt.title('Reference path')
+        # plt.figure()
+        # x = path.vertices[:, 0]
+        # y = path.vertices[:, 1]
+        # plt.plot(x,y)
+        # plt.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
+        # plt.title('Reference path')
+        # plt.legend(['Reference path','True path'])
+        
+        path = path.vertices
 
-    return p
+    return p,path
 
 def plot_inset(axis,inset,zoom):
     """Add inset (zoom) to plot
@@ -152,8 +167,8 @@ def plot_inset(axis,inset,zoom):
 
 
 # Plot trajectory
-fig, ax = plt.subplots(figsize=(15, 15))
-p = plot_trajectory(axis=ax,show_contour_legend=True)
+fig, ax = plt.subplots(figsize=(15, 7))
+p,ref_path = plot_trajectory(axis=ax,show_contour_legend=True)
 ax.set_aspect('equal')
 cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
 cp = fig.colorbar(p, cax=cax)
@@ -207,7 +222,7 @@ if args.zoom:
 plt.savefig("../plots/traj.{}".format(extension),bbox_inches='tight')
 
 # Front detection idx and x-axis construction - only for full trajectories
-if args.grad_error or args.ref:
+if args.grad_error or args.ref_error:
     idx_trig = 0
 
     # Determine index of traj where AUV reaches the front
@@ -223,8 +238,9 @@ if args.grad_error or args.ref:
     # Create mission time axis
     elif traj.shape[1] == 2:
         it = np.linspace(0, time_step*(len(traj[:, 0])-1)/3600, len(delta_vals))
+        idx_trig_time = it[idx_trig]
 
-if args.grad_error:
+if args.grad_error or args.dis:
     
     # gt => ground truth
     gt_grad_vals = np.zeros([delta_vals.shape[0], 2])
@@ -279,7 +295,7 @@ if args.grad_error:
     error = np.mean(np.abs(dot_prod_cos[idx_trig:] - grad_ref[idx_trig:])/grad_ref[idx_trig:]) * 100
     print("Cosine average relative error = %.4f %%" % (error))
     # Dot-product cosine plot
-    plt.figure()
+    plt.subplots(figsize=(15, 7))
     plt.plot(it, dot_prod_cos, 'k-', linewidth=0.8, label='Gradient deviation cosine')
     plt.plot(it, grad_ref, 'r-', linewidth=1.5, label='Reference')
     plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(grad_vals), 1.2, 10), 'r--')
@@ -292,7 +308,7 @@ if args.grad_error:
     plt.savefig("../plots/cos_deviation.{}".format(extension),bbox_inches='tight')
 
     # Cosine comparison
-    plt.figure()
+    plt.subplots(figsize=(15, 7))
     plt.plot(it, grad_vals_cos, 'k-', linewidth=0.8, label='Estimated from GP Model')
     plt.plot(it, gt_grad_vals_cos, 'r-', linewidth=1.5, label='Ground truth')
     plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(grad_vals), 1.2, 10), 'r--')
@@ -305,7 +321,7 @@ if args.grad_error:
     plt.savefig("../plots/cos.{}".format(extension),bbox_inches='tight')
 
     # Plot gradient angle
-    plt.figure()
+    plt.subplots(figsize=(15, 7))
     plt.plot(it, gt_grad_angles, 'k-', linewidth=0.8, label='Estimated from GP Model')
     plt.plot(it, grad_angles, 'r-', linewidth=1.5, label='Ground truth')
     plt.xlabel('Mission time [h]')
@@ -326,7 +342,7 @@ if args.grad_error:
 if args.ref:
     error = np.mean(np.abs(delta_vals[idx_trig:] - delta_ref)/delta_ref)*100
     print("Reference average relative error = %.4f %%" % (error))
-    plt.figure()
+    plt.subplots(figsize=(15, 7))
     plt.plot(it, delta_vals, 'k-', linewidth=1, label="Measured Chl density")
     plt.plot(it, np.tile(delta_ref, len(it)), 'r-', label="Chl density reference")
     plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(delta_vals), delta_ref*1.4, 10), 'r--')
@@ -338,5 +354,48 @@ if args.ref:
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
     plt.savefig("../plots/ref.{}".format(extension),bbox_inches='tight')
+
+# Euclidean distance between position and ref position
+if args.ref_error:
+
+    # https://stackoverflow.com/questions/10818546/finding-index-of-nearest-point-in-numpy-arrays-of-x-and-y-coordinates
+    # https://stackoverflow.com/questions/19412462/getting-distance-between-two-points-based-on-latitude-longitude
+
+    # Array to store distance
+    dist = np.zeros(len(traj[n:n+offset,0]))
+    it = np.linspace(0, time_step*(len(traj[:, 0])-1)/3600, len(traj[n:n+offset,0]))
+
+    # Data matrices
+    true_path = np.array([traj[n:n+offset,0], traj[n:n+offset,1]])
+    true_path = true_path.transpose()
+
+    # Tree struct
+    tree = spatial.KDTree(ref_path)
+
+    print("Calculating distance error")
+    percent = round(len(true_path)/100)*10
+    
+    for ind, point in enumerate(true_path):
+        # Closest point between true path and ref path
+        __ ,index = tree.query(point)
+
+        # Compute euclidean distance
+        distance = geopy.distance.geodesic(point, ref_path[index]).m
+
+        dist[ind] = distance
+        if ind % percent == 0:
+            print('Complete {:.2f} %'.format(ind/len(true_path)*100))
+        
+    plt.subplots(figsize=(15, 7))
+    plt.plot(it,dist,'k')
+    plt.xlabel('Mission time [h]')
+    plt.ylabel('Distance to front [m]')
+    # plt.yscale("log")
+    # plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(delta_vals), delta_ref*1.4, 10), 'r--')
+    # plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(delta_vals), delta_ref*1.4, 10), 'r--')
+    plt.plot(np.tile(idx_trig_time, 10), np.linspace(np.max(dist), 0, 10), 'r--')
+    plt.grid(True)
+    plt.savefig("../plots/dist_to_front.{}".format(extension),bbox_inches='tight')
+
 
 plt.show()
