@@ -14,7 +14,16 @@ from scipy.interpolate import RegularGridInterpolator
 
 from argparse import ArgumentParser
 
+# Setup plotting style
+plt.style.reload_library()
+plt.style.use(['science', 'no-latex'])
+plt.rcParams.update({'xtick.labelsize': 12,
+                    'ytick.labelsize': 12,
+                    'axes.titlesize': 20,
+                    })
 
+
+# Added runtime arguments
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("path", type=str, help="Path to the HDF5 file containing the processed data.")
@@ -23,44 +32,22 @@ def parse_args():
     parser.add_argument("--ref", action="store_true", help="Plot comparison between measurements and \
                                                             reference value instead single plot.")
     parser.add_argument("--grad_error", action='store_true', help="Plot cosine of gradient deviation.")
+    parser.add_argument("--pdf", action='store_true', help="Save plots in pdf format")
     # parser.add_argument("--zoom", action="store_true", help="Plot animation instead single plot.")
     parser.add_argument('-z','--zoom', nargs='+', help='Zoom on a particlar region of the map [x0,y0,width,height]', \
         required=False,type=lambda s: [float(item) for item in s.split(',')])
 
     return parser.parse_args()
 
-
-def update_anim(i, traj, line, pcm):
-    line.set_data(traj[:i, 0], traj[:i, 1])
-
-    t_idx = np.argmin(np.abs(traj[i,-1] - time))
-    pcm.set_array(chl[:,:,t_idx])
-
-    return line, pcm
-
-
-def plot_anim(traj):
-    fig = plt.figure()
-    pcm = plt.pcolormesh(xx, yy, chl[:,:,0], cmap='jet', shading='auto')
-    plt.colorbar()
-
-    line, = plt.plot(traj[:, 0], traj[:, 1], 'r-', linewidth=2)
-
-    plt.xlabel('WGS84 Longitude')
-    plt.ylabel('WGS84 Latitude')
-
-    ani = animation.FuncAnimation(fig, update_anim, fargs=[traj, line, pcm])
-
-    writervideo = animation.FFMpegWriter(fps=60)
-
-    if args.save_anim:
-        ani.save(args.save_anim, writer=writervideo)
-    else:
-        plt.show()
-
-
+# Parse in arguments
 args = parse_args()
 
+# Set plot format
+extension = 'png'
+if args.pdf:
+    extension = 'pdf'
+
+# Read h5 file
 with h5.File(args.path, 'r') as f:
     lon = f["lon"][()]
     lat = f["lat"][()]
@@ -76,11 +63,8 @@ with h5.File(args.path, 'r') as f:
 
     attributes = f.attrs.items()
 
+# Create data grid
 chl_interp = RegularGridInterpolator((lon, lat, time), chl)
-
-if args.anim:
-    traj_short = traj[0:-1:int(traj.shape[0]/300)]
-    plot_anim(traj_short)
 
 def trim_zeros(arr):
      """Returns a trimmed view of an n-D array excluding any outer
@@ -107,7 +91,7 @@ if sys.version_info.major == 2:
 def plot_trajectory(axis):
     """ Plot SAM trajectory """
     xx, yy = np.meshgrid(lon, lat, indexing='ij')
-    p = plt.pcolormesh(xx, yy, chl[:,:,t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
+    p = axis.pcolormesh(xx, yy, chl[:,:,t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
     axis.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
     axis.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
     return p
@@ -130,7 +114,7 @@ def plot_inset(axis,inset,zoom):
     # Create an inset axis at coordinates [inset]
     axin = axis.inset_axes(inset) 
 
-    # Plot the data on the inset axis
+    # Plot the data on the inset axis\stable\gallery\lines_bars_and_markers\joinstyle.html
     plot_trajectory(axis=axin)
 
     # Zoom in on the noisy data in the inset axis
@@ -142,11 +126,12 @@ def plot_inset(axis,inset,zoom):
     axin.set_yticks([])
 
     # Add the lines to indicate where the inset axis is coming from
-    axis.indicate_inset_zoom(axin)    
+    # axis.indicate_inset(axin,edgecolor="black",linestyle="-.")
+    axis.indicate_inset_zoom(axin,edgecolor="black",linestyle="-.")    
 
 
 # Plot trajectory
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(15, 15))
 p = plot_trajectory(axis=ax)
 ax.set_aspect('equal')
 cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
@@ -156,18 +141,14 @@ ax.set_xlabel("Longitude (degrees E)")
 ax.set_ylabel("Latitude (degrees N)")
 plt.grid(True)
 
-# plot_trajectory(axis=ax)
-
-# Front detection idx and x-axis construction - only for full trajectories
-
-# Show zoomed in portion of the trajectory
-# https://matplotlib.org/stable/gallery/subplots_axes_and_figures/zoom_inset_axes.html
-# https://stackoverflow.com/questions/13583153/how-to-zoomed-a-portion-of-image-and-insert-in-the-same-plot-in-matplotlib
-# https://towardsdatascience.com/mastering-inset-axes-in-matplotlib-458d2fdfd0c0
-
 if args.zoom:
 
-    print(args.zoom[0])
+    # Show zoomed in portion of the trajectory
+    # https://matplotlib.org/stable/gallery/subplots_axes_and_figures/zoom_inset_axes.html
+    # https://stackoverflow.com/questions/13583153/how-to-zoomed-a-portion-of-image-and-insert-in-the-same-plot-in-matplotlib
+    # https://towardsdatascience.com/mastering-inset-axes-in-matplotlib-458d2fdfd0c0
+
+    # https://proplot.readthedocs.io/en/latest/insets_panels.html
 
     # Portion of figure to zoom
     a = 0.1
@@ -177,12 +158,12 @@ if args.zoom:
     lon_length = (lon[-1] - lon[0])
     lat_length = (lat[-1] - lat[0])
 
-    print(lon_length)
-    print(args.zoom[1][0])
+    print(args.zoom[0][0])
+    # print(args.zoom[1])
 
     # Get centre coordinates of where to zoom
     x_centre = lon_length*args.zoom[0][0] + lon[0]
-    y_centre = lat_length*args.zoom[1][0] + lat[0]
+    y_centre = lat_length*args.zoom[0][1] + lat[0]
 
     # Determine x_0 and y_0 of zoomed region
     x0 = x_centre - lon_length*a/2
@@ -192,19 +173,23 @@ if args.zoom:
     x1 = x_centre + lon_length*a/2
     y1 = y_centre + lat_length*b/2
 
+    # Consider replacing with https://matplotlib.org/stable/gallery/axes_grid1/inset_locator_demo.html
+
     plot_inset(axis=ax,inset=[0.6, 0.3, a*3, b*3],zoom=[x0,x1,y0,y1])
     # plt.tight_layout()
 
-plt.show()
+# plt.show()
 # Plot gradient arrows
 # for index in range(delta_vals.shape[0]):
 #     if index % 10 == 0 :
 #         ax.arrow(x=traj[index,0], y=traj[index,1], dx=0.00005*grad_vals[index][0], dy=0.00005*grad_vals[index][1], width=.00002)
-plt.savefig("traj.png",bbox_inches='tight')
+plt.savefig("../plots/traj.{}".format(extension),bbox_inches='tight')
 
 # Front detection idx and x-axis construction - only for full trajectories
 if args.grad_error or args.ref:
     idx_trig = 0
+
+    # Determine index of traj where AUV reaches the front
     for i in range(len(delta_vals)):
         if delta_ref - 5e-3 <= delta_vals[i]:
             idx_trig = i
@@ -213,6 +198,8 @@ if args.grad_error or args.ref:
     if traj.shape[1] == 3:
         delta_t = (traj[-1,-1] - traj[0,-1])/3600
         it = np.linspace(0, delta_t, len(delta_vals))
+
+    # Create mission time axis
     elif traj.shape[1] == 2:
         it = np.linspace(0, time_step*(len(traj[:, 0])-1)/3600, len(delta_vals))
 
@@ -281,7 +268,7 @@ if args.grad_error:
     plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("cos_deviation.png",bbox_inches='tight')
+    plt.savefig("../plots/cos_deviation.{}".format(extension),bbox_inches='tight')
 
     # Cosine comparison
     plt.figure()
@@ -294,7 +281,7 @@ if args.grad_error:
     plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("cos.png",bbox_inches='tight')
+    plt.savefig("../plots/cos.{}".format(extension),bbox_inches='tight')
 
     # Plot gradient angle
     plt.figure()
@@ -305,7 +292,7 @@ if args.grad_error:
     # plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("grad.png",bbox_inches='tight')
+    plt.savefig("../plots/grad.{}".format(extension),bbox_inches='tight')
 
     # Plot gradients
     # step = int(grad_vals.shape[0] / 20)
@@ -329,6 +316,6 @@ if args.ref:
     # plt.title("Measurements \n Average relative error = %.4f %%" % (error))
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("ref.png",bbox_inches='tight')
+    plt.savefig("../plots/ref.{}".format(extension),bbox_inches='tight')
 
 plt.show()
