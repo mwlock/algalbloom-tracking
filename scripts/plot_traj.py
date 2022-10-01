@@ -88,12 +88,33 @@ if sys.version_info.major == 2:
         print("{} : {}".format(att[0],att[1]))
 
 
-def plot_trajectory(axis):
+def plot_trajectory(axis, show_contour_legend = False):
     """ Plot SAM trajectory """
     xx, yy = np.meshgrid(lon, lat, indexing='ij')
     p = axis.pcolormesh(xx, yy, chl[:,:,t_idx], cmap='viridis', shading='auto', vmin=0, vmax=10)
-    axis.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
+    cs = axis.contour(xx, yy, chl[:,:,t_idx], levels=[delta_ref])
+    axis.clabel(cs, inline=1, fontsize=10)
     axis.plot(traj[n:n+offset,0], traj[n:n+offset,1], 'r', linewidth=3)
+
+    if show_contour_legend:
+        # https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_demo.html
+
+        # Determine which path is the longest (treat this as the gradient path)
+        longest_path = 0
+        path = None
+        for i in cs.collections[0].get_paths():
+            path_length = i.vertices.shape[0]
+            if path_length>longest_path:
+                longest_path = path_length
+                path  = i
+
+        plt.figure()
+        x = path.vertices[:, 0]
+        y = path.vertices[:, 1]
+        plt.figure()
+        plt.plot(x,y)
+        plt.title('Reference path')
+
     return p
 
 def plot_inset(axis,inset,zoom):
@@ -132,7 +153,7 @@ def plot_inset(axis,inset,zoom):
 
 # Plot trajectory
 fig, ax = plt.subplots(figsize=(15, 15))
-p = plot_trajectory(axis=ax)
+p = plot_trajectory(axis=ax,show_contour_legend=True)
 ax.set_aspect('equal')
 cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
 cp = fig.colorbar(p, cax=cax)
