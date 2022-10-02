@@ -37,14 +37,11 @@ plt.rcParams.update({'xtick.labelsize': 20,
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("path", type=str, help="Path to the HDF5 file containing the processed data.")
-    parser.add_argument("--anim", action="store_true", help="Plot animation instead single plot.")
-    parser.add_argument("--save_anim", type=str, help="Save the animation in the given file.")
     parser.add_argument("--ref", action="store_true", help="Plot comparison between measurements and \
                                                             reference value instead single plot."),
     parser.add_argument("--ref_error", action="store_true", help="Plot distance between path and reference level.")                                                            
     parser.add_argument("--grad_error", action='store_true', help="Plot cosine of gradient deviation.")
     parser.add_argument("--pdf", action='store_true', help="Save plots in pdf format")
-    # parser.add_argument("--zoom", action="store_true", help="Plot animation instead single plot.")
     parser.add_argument('-z','--zoom', nargs='+', help='Zoom on a particlar region of the map [x0,y0,width,height]', \
         required=False,type=lambda s: [float(item) for item in s.split(',')])
 
@@ -222,7 +219,7 @@ if args.zoom:
 plt.savefig("../plots/traj.{}".format(extension),bbox_inches='tight')
 
 # Front detection idx and x-axis construction - only for full trajectories
-if args.grad_error or args.ref_error:
+if args.grad_error or args.ref_error or args.ref:
     idx_trig = 0
 
     # Determine index of traj where AUV reaches the front
@@ -240,7 +237,7 @@ if args.grad_error or args.ref_error:
         it = np.linspace(0, time_step*(len(traj[:, 0])-1)/3600, len(delta_vals))
         idx_trig_time = it[idx_trig]
 
-if args.grad_error or args.dis:
+if args.grad_error or args.ref:
     
     # gt => ground truth
     gt_grad_vals = np.zeros([delta_vals.shape[0], 2])
@@ -322,8 +319,8 @@ if args.grad_error or args.dis:
 
     # Plot gradient angle
     plt.subplots(figsize=(15, 7))
-    plt.plot(it, gt_grad_angles, 'k-', linewidth=0.8, label='Estimated from GP Model')
-    plt.plot(it, grad_angles, 'r-', linewidth=1.5, label='Ground truth')
+    plt.plot(it, gt_grad_angles, 'r-', linewidth=0.8, label='Ground truth')
+    plt.plot(it, grad_angles, 'k-', linewidth=1.5, label='Estimated from GP Model')
     plt.xlabel('Mission time [h]')
     plt.ylabel('Gradient [rad]')
     # plt.axis([0, np.max(it), -1.2, 1.2])
