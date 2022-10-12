@@ -315,7 +315,7 @@ if args.grad_error or args.ref:
             gt_grad_vals_cos = gt_grad_vals_cos[idx_start:idx_end]
             it = it[idx_start:idx_end]
             delta_vals = delta_vals[idx_start:idx_end]
-            traj = traj[idx_start:idx_end]
+            traj = traj[int(idx_start*time_step):int(idx_end*time_step)]
 
         # Determine gradient angle
         gt_grad_angles = np.arctan2(gt_grad_vals[:, 1],gt_grad_vals[:, 0])
@@ -438,6 +438,22 @@ if args.ref_error:
         plt.plot(np.tile(idx_trig_time, 10), np.linspace(np.max(dist), 0, 10), 'r--')
     plt.grid(True)
     save_figure(fig,"distance_error")
+
+
+# Plot and save trajectory for specific time range
+if args.time:
+
+    # Plot trajectory
+    fig, ax = plt.subplots(figsize=(15, 7))
+    p,ref_path = plot_trajectory(axis=ax,show_contour_legend=True)
+    ax.set_aspect('equal')
+    cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+    cp = fig.colorbar(p, cax=cax)
+    cp.set_label("Chl a density [mm/mm3]")
+    ax.set_xlabel("Longitude (degrees E)")
+    ax.set_ylabel("Latitude (degrees N)")
+    plt.grid(True)
+    save_figure(fig,"trajectory_trimmed")
 
 
 plt.show()
