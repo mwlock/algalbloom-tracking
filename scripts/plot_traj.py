@@ -42,9 +42,11 @@ def parse_args():
     parser.add_argument("--ref_error", action="store_true", help="Plot distance between path and reference level.")                                                            
     parser.add_argument("--grad_error", action='store_true', help="Plot cosine of gradient deviation.")
     parser.add_argument("--pdf", action='store_true', help="Save plots in pdf format")
+    parser.add_argument("--prefix",  type=str, help="Name used as prefix when saving plots.")
     parser.add_argument('-z','--zoom', nargs='+', help='Zoom on a particlar region of the map [x0,y0,width,height]', \
         required=False,type=lambda s: [float(item) for item in s.split(',')])
-
+    parser.add_argument('-t','--time', nargs='+', help='Specify the time range in hours for plotting', \
+        required=False,type=lambda s: [float(item) for item in s.split(',')])
     return parser.parse_args()
 
 # Parse in arguments
@@ -54,6 +56,22 @@ args = parse_args()
 extension = 'png'
 if args.pdf:
     extension = 'pdf'
+
+# Set prefix for plot names
+plot_name_prefix = ""
+if args.prefix:
+    plot_name_prefix = args.prefix + "-"
+
+# Save figure function
+def save_figure(fig, name):
+    fig.savefig("../plots/{}{}.{}".format(plot_name_prefix,name,extension),bbox_inches='tight')
+
+# Get start and end time from arguments
+start_time = -1
+end_time = -1
+if args.time:
+    start_time = float(args.time[0][0])
+    end_time = float(args.time[0][1])
 
 # Read h5 file
 with h5.File(args.path, 'r') as f:
@@ -191,9 +209,6 @@ if args.zoom:
     lon_length = (lon[-1] - lon[0])
     lat_length = (lat[-1] - lat[0])
 
-    print(args.zoom[0][0])
-    # print(args.zoom[1])
-
     # Get centre coordinates of where to zoom
     x_centre = lon_length*args.zoom[0][0] + lon[0]
     y_centre = lat_length*args.zoom[0][1] + lat[0]
@@ -216,7 +231,7 @@ if args.zoom:
 # for index in range(delta_vals.shape[0]):
 #     if index % 10 == 0 :
 #         ax.arrow(x=traj[index,0], y=traj[index,1], dx=0.00005*grad_vals[index][0], dy=0.00005*grad_vals[index][1], width=.00002)
-plt.savefig("../plots/traj.{}".format(extension),bbox_inches='tight')
+save_figure(fig, "traj")
 
 # Front detection idx and x-axis construction - only for full trajectories
 if args.grad_error or args.ref_error or args.ref:
@@ -236,6 +251,31 @@ if args.grad_error or args.ref_error or args.ref:
     elif traj.shape[1] == 2:
         it = np.linspace(0, time_step*(len(traj[:, 0])-1)/3600, len(delta_vals))
         idx_trig_time = it[idx_trig]
+
+    # Determine start and stop indexes for the mission period ================================
+    # Find index of numpy array where value is larger than specified time    
+    # Get index of start and end of mission
+    idx_start = np.where(it >= start_time)[0][0]
+    idx_end = np.where(it >= end_time)[0][0]
+    
+    # Multipy end index by sampling rate to get index of last sample
+    # idx_end = idx_end*meas_per
+
+    # if idx_start and idx_end are empty, close the program and print error message
+    if not idx_start.size or not idx_end.size:
+        print("Error: start or end time out of range")
+        sys.exit()
+
+    print("Start time: ", it[idx_start])
+    print("End time: ", it[idx_end])
+
+    # Bound the mission to the specified time range, end_time == -1 means end of mission
+    if end_time == -1:
+        idx_end = len(it)-1
+    if start_time == -1:
+        idx_start = 0
+
+    # ===========================================================================
 
 if args.grad_error or args.ref:
     
@@ -266,59 +306,54 @@ if args.grad_error or args.ref:
             grad_vals_cos[i] = grad_vals[i, 0] / np.linalg.norm(grad_vals[i])
             gt_grad_vals_cos[i] = gt_grad_vals[i, 0] / np.linalg.norm(gt_grad_vals[i])
 
+        # Bound the mission to the specified time range
+        if args.time:
+            gt_grad_vals = gt_grad_vals[idx_start:idx_end]
+            grad_vals = grad_vals[idx_start:idx_end]
+            dot_prod_cos = dot_prod_cos[idx_start:idx_end]
+            grad_vals_cos = grad_vals_cos[idx_start:idx_end]
+            gt_grad_vals_cos = gt_grad_vals_cos[idx_start:idx_end]
+            it = it[idx_start:idx_end]
+            delta_vals = delta_vals[idx_start:idx_end]
+            traj = traj[idx_start:idx_end]
+
         # Determine gradient angle
         gt_grad_angles = np.arctan2(gt_grad_vals[:, 1],gt_grad_vals[:, 0])
         grad_angles = np.arctan2(grad_vals[:, 1],grad_vals[:, 0])
-
-    else:
-        gt_grad = np.gradient(chl)
-        gt_grad_norm = np.sqrt(gt_grad[0]**2 + gt_grad[1]**2)
-        gt_gradient = (RegularGridInterpolator((lon, lat, time), gt_grad[0]/gt_grad_norm),
-                    RegularGridInterpolator((lon, lat, time), gt_grad[1]/gt_grad_norm))
-
-        # Compute ground truth gradients
-        for i in range(delta_vals.shape[0]-1):
-            if i % 10000 == 0:
-                print("Computing gradient... Current iteration:", i)
-
-            gt_grad_vals[i, 0] = gt_gradient[0]((traj[i*meas_per,0], traj[i*meas_per,1], traj[i*meas_per,2]))
-            gt_grad_vals[i, 1] = gt_gradient[1]((traj[i*meas_per,0], traj[i*meas_per,1], traj[i*meas_per,2]))
-            dot_prod_cos[i] = np.dot(grad_vals[i*meas_per], gt_grad_vals[i]) / (np.linalg.norm(grad_vals[i*meas_per]) * np.linalg.norm(gt_grad_vals[i]))
-
-            grad_vals_cos[i] = grad_vals[i*meas_per, 0] / np.linalg.norm(grad_vals[i*meas_per])
-            gt_grad_vals_cos[i] = gt_grad_vals[i, 0] / np.linalg.norm(gt_grad_vals[i])
 
     grad_ref = np.ones(dot_prod_cos.shape)
     error = np.mean(np.abs(dot_prod_cos[idx_trig:] - grad_ref[idx_trig:])/grad_ref[idx_trig:]) * 100
     print("Cosine average relative error = %.4f %%" % (error))
     # Dot-product cosine plot
-    plt.subplots(figsize=(15, 7))
+    fig, ax = plt.subplots(figsize=(15, 7))
     plt.plot(it, dot_prod_cos, 'k-', linewidth=0.8, label='Gradient deviation cosine')
     plt.plot(it, grad_ref, 'r-', linewidth=1.5, label='Reference')
-    plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(grad_vals), 1.2, 10), 'r--')
+    if idx_trig > idx_start:
+        plt.plot(np.tile(it[idx_trig], 10), np.linspace (np.min(grad_vals), 1.2, 10), 'r--')
     plt.xlabel('Mission time [h]')
     plt.ylabel('Cosine')
     # plt.title("Gradient deviation cosine\nAverage relative error = %.4f %%" % (error))
-    plt.axis([0, np.max(it), -1.2, 1.2])
+    plt.axis([it[0], np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("../plots/cos_deviation.{}".format(extension),bbox_inches='tight')
+    save_figure(fig,"gradient_deviation_cosine")
 
     # Cosine comparison
-    plt.subplots(figsize=(15, 7))
+    fig, ax = plt.subplots(figsize=(15, 7))
     plt.plot(it, grad_vals_cos, 'k-', linewidth=0.8, label='Estimated from GP Model')
     plt.plot(it, gt_grad_vals_cos, 'r-', linewidth=1.5, label='Ground truth')
-    plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(grad_vals), 1.2, 10), 'r--')
+    if idx_trig > idx_start:
+        plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(grad_vals), 1.2, 10), 'r--')
     plt.xlabel('Mission time [h]')
     plt.ylabel('Cosine')
     # plt.title("Cosine of GT and Estimated gradient")
-    plt.axis([0, np.max(it), -1.2, 1.2])
+    plt.axis([it[0], np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("../plots/cos.{}".format(extension),bbox_inches='tight')
+    save_figure(fig,"cosine_comparison")
 
     # Plot gradient angle
-    plt.subplots(figsize=(15, 7))
+    fig, ax = plt.subplots(figsize=(15, 7))
     plt.plot(it, gt_grad_angles, 'r-', linewidth=0.8, label='Ground truth')
     plt.plot(it, grad_angles, 'k-', linewidth=1.5, label='Estimated from GP Model')
     plt.xlabel('Mission time [h]')
@@ -326,7 +361,7 @@ if args.grad_error or args.ref:
     # plt.axis([0, np.max(it), -1.2, 1.2])
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("../plots/grad.{}".format(extension),bbox_inches='tight')
+    save_figure(fig,"gradient_angle")
 
     # Plot gradients
     # step = int(grad_vals.shape[0] / 20)
@@ -337,20 +372,25 @@ if args.grad_error or args.ref:
 
 # Reference tracking error
 if args.ref:
-    error = np.mean(np.abs(delta_vals[idx_trig:] - delta_ref)/delta_ref)*100
+    if idx_trig > idx_start: 
+        error = np.mean(np.abs(delta_vals[idx_trig:] - delta_ref)/delta_ref)*100
+    else:
+        error = np.mean(np.abs(delta_vals - delta_ref)/delta_ref)*100
     print("Reference average relative error = %.4f %%" % (error))
-    plt.subplots(figsize=(15, 7))
+    fig, ax = plt.subplots(figsize=(15, 7))
     plt.plot(it, delta_vals, 'k-', linewidth=1, label="Measured Chl density")
     plt.plot(it, np.tile(delta_ref, len(it)), 'r-', label="Chl density reference")
-    plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(delta_vals), delta_ref*1.4, 10), 'r--')
+    if idx_trig > idx_start:
+        plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(delta_vals), delta_ref*1.4, 10), 'r--')
     plt.xlabel('Mission time [h]')
     plt.ylabel('Chl a density [mm/mm3]')
     # plt.axis([0, it[-1], np.min(delta_vals), 0.5+np.max(delta_vals)])
-    plt.axis([0, it[-1], 0, 12])
+    plt.axis([it[0], it[-1], 0, 12])
     # plt.title("Measurements \n Average relative error = %.4f %%" % (error))
     plt.legend(loc=4, shadow=True)
     plt.grid(True)
-    plt.savefig("../plots/ref.{}".format(extension),bbox_inches='tight')
+    save_figure(fig,"reference_tracking")
+
 
 # Euclidean distance between position and ref position
 if args.ref_error:
@@ -361,6 +401,10 @@ if args.ref_error:
     # Array to store distance
     dist = np.zeros(len(traj[n:n+offset,0]))
     it = np.linspace(0, time_step*(len(traj[:, 0])-1)/3600, len(traj[n:n+offset,0]))
+
+    # Bound by time range
+    if args.time:
+        it = it + start_time
 
     # Data matrices
     true_path = np.array([traj[n:n+offset,0], traj[n:n+offset,1]])
@@ -382,17 +426,18 @@ if args.ref_error:
         dist[ind] = distance
         if ind % percent == 0:
             print('Complete {:.2f} %'.format(ind/len(true_path)*100))
-        
-    plt.subplots(figsize=(15, 7))
+    
+    fig, ax = plt.subplots(figsize=(15, 7))
     plt.plot(it,dist,'k')
     plt.xlabel('Mission time [h]')
     plt.ylabel('Distance to front [m]')
     # plt.yscale("log")
     # plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(delta_vals), delta_ref*1.4, 10), 'r--')
     # plt.plot(np.tile(it[idx_trig], 10), np.linspace(np.min(delta_vals), delta_ref*1.4, 10), 'r--')
-    plt.plot(np.tile(idx_trig_time, 10), np.linspace(np.max(dist), 0, 10), 'r--')
+    if idx_trig_time>idx_start:
+        plt.plot(np.tile(idx_trig_time, 10), np.linspace(np.max(dist), 0, 10), 'r--')
     plt.grid(True)
-    plt.savefig("../plots/dist_to_front.{}".format(extension),bbox_inches='tight')
+    save_figure(fig,"distance_error")
 
 
 plt.show()
