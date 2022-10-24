@@ -16,10 +16,11 @@ from scipy import spatial
 
 from argparse import ArgumentParser
 
+# Distance between to lat and lon points
+# https://geopy.readthedocs.io/en/stable/
 import geopy.distance
 
 # Setup plotting style
-
 # https://github.com/garrettj403/SciencePlots/issues/15
 
 plt.style.reload_library()
@@ -39,6 +40,7 @@ def parse_args():
     parser.add_argument("path", type=str, help="Path to the HDF5 file containing the processed data.")
     parser.add_argument("--ref", action="store_true", help="Plot comparison between measurements and \
                                                             reference value instead single plot."),
+    parser.add_argument("--avg_speed", action="store_true", help="Print average speed travelled during the mission."),
     parser.add_argument("--ref_error", action="store_true", help="Plot distance between path and reference level.")                                                            
     parser.add_argument("--grad_error", action='store_true', help="Plot cosine of gradient deviation.")
     parser.add_argument("--pdf", action='store_true', help="Save plots in pdf format")
@@ -191,6 +193,28 @@ cp.set_label("Chl a density [mm/mm3]")
 ax.set_xlabel("Longitude (degrees E)")
 ax.set_ylabel("Latitude (degrees N)")
 plt.grid(True)
+
+# ==============================================================================
+#                         AVERAGE SPEED TRAVELLED 
+# ==============================================================================
+
+if args.avg_speed:
+    # Print out distance travelled
+    distances_between_samples = np.array([])
+    for i in range(n,n+offset):
+
+        # Print progress
+        if i%1000 == 0:
+            print("Calculating distance travelled for sample {} of {}".format(i,n+offset))
+        
+        # Get distance between each point in the trajectory
+        distance = geopy.distance.geodesic((traj[i,1],traj[i,0]), (traj[i+1,1],traj[i+1,0])).m
+        distances_between_samples = np.append(distances_between_samples,distance)
+
+    # Print out average speed
+    # Trajectory sampling rate is set at 1 Hz
+    print("Average speed: {} m/s".format(np.mean(distances_between_samples)))
+# ==============================================================================
 
 if args.zoom:
 
@@ -422,6 +446,7 @@ if args.ref_error:
 
         # Compute euclidean distance
         distance = geopy.distance.geodesic(point, ref_path[index]).m
+        # https://geopy.readthedocs.io/en/stable/
 
         dist[ind] = distance
         if ind % percent == 0:
