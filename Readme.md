@@ -6,6 +6,8 @@ Experimental Validation in the Baltic Sea</h1>
 
 > This repo serves as a showcase for the final paper. See [Joana Fonseca's fork](https://github.com/JoanaFonsec/algalbloom-tracking) for implementation details.
 
+> Paper aviailable at [arXiv](https://arxiv.org/abs/2305.00774)
+
 ## Abstract
 This paper investigates using satellite data to improve adaptive sampling missions, particularly for front tracking
 scenarios such as with algal blooms. Our proposed solution to find
