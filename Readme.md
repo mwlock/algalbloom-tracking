@@ -1,4 +1,10 @@
-<h1 align="center">Robust STL Planning Through Interpolating Splines</h1>
+<h1 align="center">Adaptive Sampling of Algal Blooms
+Using Autonomous Underwater Vehicle and Satellite Imagery:
+Experimental Validation in the Baltic Sea</h1>
+
+[<img src="/figures/banner.png" width="100%">]()
+
+> This repo serves as a showcase for the final paper. See [Joana Fonseca's fork](https://github.com/JoanaFonsec/algalbloom-tracking) for implementation details.
 
 ## Abstract
 This paper investigates using satellite data to improve adaptive sampling missions, particularly for front tracking
