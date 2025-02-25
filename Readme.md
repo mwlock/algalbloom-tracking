@@ -1,26 +1,35 @@
-# Algal Bloom Tracking
+<h1 align="center">Robust STL Planning Through Interpolating Splines</h1>
 
-Required packages:
-- [smarc_msgs fork](https://github.com/matthew-william-lock/smarc_msgs)
+## Abstract
+This paper investigates using satellite data to improve adaptive sampling missions, particularly for front tracking
+scenarios such as with algal blooms. Our proposed solution to find
+and track algal bloom fronts uses an Autonomous Underwater
+Vehicle (AUV) equipped with a sensor that measures the concentration of chlorophyll a and satellite data. The proposed method
+learns the kernel parameters for a Gaussian process (GP) model
+using satellite images of chlorophyll a from the previous days.
+Then, using the data collected by the AUV, it models chlorophyll a
+concentration online. We take the gradient of this model to obtain
+the direction of the algal bloom front and feed it to our control
+algorithm. The performance of this method is evaluated through
+realistic simulations for an algal bloom front in the Baltic sea,
+using the models of the AUV and the chlorophyll a sensor.
+We compare the performance of different estimation methods,
+from GP to curve interpolation using least squares. Sensitivity
+analysis is performed to evaluate the impact of sensor noise on
+the methods’ performance. We implement our method on an
+AUV and run experiments in the Stockholm archipelago in the
+summer of 2022.
 
-## Recording ros bags
+## Citation
 
-Example of recording odom and waypoint locations
-```bash
-rosbag record -O bag_name /sam/algae_tracking/chlorophyll_sampling /sam/algae_tracking/gradient /sam/algae_tracking/vp /sam/dr/lat_lon /sam/dr/odom /sam/smarc_bt/live_wp/wp
+If you find this work useful, please consider citing it:
+
+```bibtex
+@article{fonseca2025adaptive,
+  author = {Joana Fonseca, Sriharsha Bhat, Matthew Lock, Ivan Stenius, Karl H. Johansson},
+  title = {Adaptive Sampling of Algal Blooms Using Autonomous Underwater Vehicles and Satellite Imagery: Experimental Validation in the Baltic Sea},
+  journal = {Journal TBD},
+  year = {2025}
+}
 ```
 
-## Plotting SAM Mission Trajectory
-
-After running the mission, data will be recorded to ```~/catkin_ws/install/share/smarc_algal_bloom_tracking/output/mission.h5```. This data can be plotted copying the file to ```~/catkin_ws/src/smarc_algal_bloom_tracking/output/mission.h5```, then navigating to ```~/catkin_ws/src/smarc_algal_bloom_tracking/scripts```and running:
-
-```python
-python plot_traj.py ../output/mission.h5 --ref --grad_error
-```
-
-> For information on the available flags, run the following command
-```
-python plot_traj.py --help
- ```
-
-*The plotting script is adapted from [Alexandre Rocha](https://github.com/avrocha)*
